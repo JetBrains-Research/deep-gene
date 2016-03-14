@@ -3,7 +3,7 @@ import cPickle
 
 import numpy
 import theano
-from conv import get_best_interval, create_network
+from conv import get_best_interval, create_default_network, get_dataset_types, get_model_parameters_path, get_model_name
 
 from data import convert_to_binary_layered
 
@@ -25,31 +25,33 @@ def predict_tracks_conv():
     interval = get_best_interval()
     left, right = interval
     batch_size = 1000
-    model = create_network(right - left, batch_size)
-    for i in range(3):
-        with gzip.open("models/best_conv_model_{}.pkl.gz".format(i), 'r') as f:
-            loaded_state = cPickle.load(f)
-            model.load_state(loaded_state)
+    network = create_default_network(right - left, batch_size)
+    for data_name in get_dataset_types():
+        for i in range(3):
+            model_name = get_model_name(data_name, i)
+            with gzip.open(get_model_parameters_path(data_name, i), 'r') as f:
+                loaded_state = cPickle.load(f)
+                network.load_state(loaded_state)
 
-        f = open("tracks/conv_predictions_{}.wig".format(i), 'w')
-        f.write("variableStep chrom=chr1 span=20\n")
-        parts = []
-        offsets = []
+            f = open("tracks/conv_predictions_{}.wig".format(model_name), 'w')
+            f.write("variableStep chrom=chr1 span=20\n")
+            parts = []
+            offsets = []
 
-        for (part, offset) in prepare_genome(interval):
-            binary = convert_to_binary_layered(part)
-            parts.append(binary)
-            offsets.append(offset)
-            if len(parts) == batch_size:
-                data_x = numpy.asarray(parts, dtype=theano.config.floatX)
-                results = model.prob(data_x)
-                for i in xrange(0, batch_size):
-                    f.write(str(offsets[i] - 10) + " " + str(results[i, 1]) + "\n")
+            for (part, offset) in prepare_genome(interval):
+                binary = convert_to_binary_layered(part)
+                parts.append(binary)
+                offsets.append(offset)
+                if len(parts) == batch_size:
+                    data_x = numpy.asarray(parts, dtype=theano.config.floatX)
+                    results = network.prob(data_x)
+                    for i in xrange(0, batch_size):
+                        f.write(str(offsets[i] - 10) + " " + str(results[i, 1]) + "\n")
 
-                parts = []
-                offsets = []
+                    parts = []
+                    offsets = []
 
-        f.close()
+            f.close()
 
 
 def do_it():

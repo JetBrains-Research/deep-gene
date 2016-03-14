@@ -129,6 +129,9 @@ class Network(object):
         y = T.ivector('y')  # the labels are presented as 1D vector of
         is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
+        self.sequence_size = sequence_size
+        self.batch_size = batch_size
+
         self.index = index
         self.x = x
         self.y = y
@@ -141,17 +144,7 @@ class Network(object):
         print '... building the model'
 
         # Construct the first convolutional pooling layer:
-        conv_1 = LeNetConvPoolLayer(
-            rng,
-            input=x.reshape((batch_size, 4, sequence_size, 1)),
-            image_shape=(batch_size, 4, sequence_size, 1),
-            filter_shape=(n_kernels1, 4, pattern1_size, 1),
-            poolsize=(2, 1)
-        )
-
-        print("conv_1.W.shape={}".format(conv_1.W.get_value().shape))
-
-        conv1_out_size = (sequence_size - pattern1_size + 1) / 2
+        conv_1, conv1_out_size = self.get_conv1_layer(rng, n_kernels1, pattern1_size, sequence_size)
 
         conv_1_output = add_dropout(conv_1.output, is_train, 0.8)
         conv_2 = LeNetConvPoolLayer(
@@ -248,6 +241,18 @@ class Network(object):
         self.fully_connected.load_state(state["fully_connected"])
         self.regression.load_state(state["regression"])
 
+    def get_conv1_layer(self, rng, n_kernels1, pattern1_size, poolsize=(2, 1)):
+        sequence_size = self.sequence_size
+        conv_1 = LeNetConvPoolLayer(
+            rng,
+            input=self.x.reshape((self.batch_size, 4, sequence_size, 1)),
+            image_shape=(self.batch_size, 4, sequence_size, 1),
+            filter_shape=(n_kernels1, 4, pattern1_size, 1),
+            poolsize=poolsize
+        )
+        print("conv_1.W.shape={}".format(conv_1.W.get_value().shape))
+        conv1_out_size = (sequence_size - pattern1_size + 1) / 2
+        return conv_1, conv1_out_size
 
 class Fitter():
     def __init__(self,
@@ -393,7 +398,7 @@ class Fitter():
         return test_error
 
 
-def create_network(sequence_size, batch_size=1000):
+def create_default_network(sequence_size, batch_size=1000):
     rng = numpy.random.RandomState(23455)
     model = Network(rng,
                     batch_size,
@@ -407,10 +412,21 @@ def create_network(sequence_size, batch_size=1000):
                     sequence_size=sequence_size)
     return model
 
-def train_model(data, name, index, sequence_size=2000):
+
+def get_model_name(data_name, index):
+    return "best_conv_model_{}_{}".format(data_name, index)
+
+
+def get_model_parameters_path(dataset_name, index):
+    model_name = get_model_name(dataset_name, index)
+    model_path = 'models/{}.pkl.gz'.format(model_name)
+    return model_path
+
+
+def train_model(data, dataset_name, index, sequence_size=2000):
     training, validation, test = data
     batch_size = 1000
-    network = create_network(sequence_size, batch_size)
+    network = create_default_network(sequence_size, batch_size)
     fitter = Fitter(network,
                     training,
                     validation,
@@ -419,9 +435,9 @@ def train_model(data, name, index, sequence_size=2000):
                     learning_rate=0.001,
                     reg_coef1=0.00001,
                     reg_coef2=0.00001)
-    model_name = "best_conv_model_{}_{}".format(name, index)
+    model_name = get_model_name(dataset_name, index)
     log_path = 'models/{}.log'.format(model_name)
-    model_path = 'models/{}.pkl.gz'.format(model_name)
+    model_path = get_model_parameters_path(dataset_name, index)
     fitter.do_fit(log_path, model_path)
 
 
@@ -429,11 +445,15 @@ def get_best_interval():
     return 1000, 2500
 
 
+def get_dataset_types():
+    return ["genes-coding", "genes-all", "cage-near-coding", "cage-all"]
+
+
 def main():
     theano.config.openmp = True
     left, right = get_best_interval()
 
-    for data_name in ["genes-coding", "genes-all", "cage-near-coding", "cage-all"]:
+    for data_name in get_dataset_types():
         for i in xrange(3):
             data_set = divide_data(data_name, i)
             data = prepare_data(data_set, interval=(left, right))

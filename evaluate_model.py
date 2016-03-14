@@ -2,7 +2,7 @@ import theano
 import gzip
 import cPickle
 
-from conv import get_best_interval, prepare_data, create_network
+from conv import get_best_interval, prepare_data, create_default_network
 from data import divide_data
 
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ def main():
 
     data_x, data_y = training
 
-    model = create_network(right - left, batch_size, data_x, data_y)
+    model = create_default_network(right - left, batch_size, data_x, data_y)
 
     with gzip.open('models/best_conv_model_0.pkl.gz', 'r') as f:
         loaded_state = cPickle.load(f)
