@@ -1,7 +1,6 @@
-import random
-import sys
 import gzip
 import cPickle
+import itertools
 
 import numpy
 from conv import get_best_interval, get_pattern_function1, get_pattern_function2, create_default_network
@@ -11,13 +10,7 @@ from data import convert_to_binary_layered, divide_data, unzip
 
 
 def make_nmers(n):
-    if n == 0:
-        return [""]
-    result = []
-    for ch in ["a", "t", "g", "c"]:
-        prev = make_nmers(n - 1)
-        result.extend([ch + p for p in prev])
-    return result
+    return ["".join(chunk) for chunk in itertools.product("atgc", repeat=n)]
 
 
 def inspect_pattern1(kernel1, conv_1):
