@@ -1,4 +1,3 @@
-import sys
 import gzip
 import cPickle
 

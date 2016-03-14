@@ -111,6 +111,7 @@ class HiddenLayer(object):
         self.W.set_value(state["W"])
         self.b.set_value(state["b"])
 
+
 class LeNetConvPoolLayer(object):
     """Pool Layer of a convolutional network """
 

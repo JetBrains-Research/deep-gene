@@ -5,6 +5,7 @@ import numpy
 import theano
 import theano.tensor as T
 
+
 class LogisticRegression(object):
     """Multi-class Logistic Regression Class
 

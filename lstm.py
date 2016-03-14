@@ -273,7 +273,7 @@ def fit_model(data_set, index):
 
 
 def just_do_it():
-    data_sets = [divide_data(i) for i in range(0, 3)]
+    data_sets = [divide_data("genes-coding", i) for i in range(0, 3)]
 
     results = []
 
