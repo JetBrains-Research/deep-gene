@@ -214,17 +214,6 @@ class Network(object):
         self.fully_connected = fully_connected
         self.regression = regression
 
-        """
-        self.get_layer1 = theano.function(
-            inputs=[index],
-            outputs=conv_2.output,
-            givens={
-                x: train_set_x[index * batch_size:(index + 1) * batch_size],
-                is_train: numpy.cast['int32'](0)
-            }
-        )
-        """
-
     def get_layers(self, x):
         result = (
             self.conv_1.output,
@@ -274,8 +263,10 @@ class Fitter():
         validation_set_x, validation_set_y = validation
         test_set_x, test_set_y = test
 
-        self.n_validation_batches = validation_set_x.get_value(borrow=True).shape[0] // batch_size
+        self.network = network
+        self.n_train_batches = train_set_x.get_value(borrow=True).shape[0] // batch_size
         self.n_test_batches = test_set_x.get_value(borrow=True).shape[0] // batch_size
+        self.n_validation_batches = validation_set_x.get_value(borrow=True).shape[0] // batch_size
 
         x = network.x
         y = network.y
@@ -348,6 +339,59 @@ class Fitter():
         n = self.n_validation_batches
         return sum([self.validation_error(i) for i in range(n)]) / float(n)
 
+    def do_fit(self, log_path, model_path=None):
+        test_start = time.time()
+        patience = 50
+        step = 1
+        best_error = 1.0
+        test_error = 0
+
+        n_train_batches = self.n_train_batches
+
+        log = open(log_path, 'w')
+        for epoch in range(1000):
+            a_cost = 0.0
+            best_valid_error = 1.0
+            epoch_start = time.time()
+            for minibatch_index in xrange(n_train_batches):
+                sys.stdout.write("*")
+                sys.stdout.flush()
+                avg_cost = self.train_model(minibatch_index)
+                a_cost += avg_cost / n_train_batches
+                if step % (n_train_batches // 5) == 0:
+                    validation_error = self.get_validation_error()
+
+                    if validation_error < best_valid_error:
+                        best_valid_error = validation_error
+
+                    if validation_error < best_error:
+                        if model_path is not None:
+                            with gzip.open(model_path, 'w') as f:
+                                cPickle.dump(self.network.save_state(), f)
+                        patience = 50
+                        best_error = validation_error
+                        test_error = self.get_test_error()
+                    else:
+                        patience -= 1
+                step += 1
+
+            print ""
+            if patience < 0:
+                break
+
+            epoch_end = time.time()
+            line = ("epoch: {}, cost: {:.5f}, valid err: {:.5f}, best err: {:.5f}, test err: {:.5f}, time: {}"
+                    .format(epoch, a_cost, best_valid_error, best_error, test_error, human_time(epoch_end - epoch_start)))
+            print(line)
+            log.write(line + "\n")
+
+            epoch += 1
+        test_end = time.time()
+        log.write("result: {}\n".format(test_error))
+        log.write("time: {}\n".format(human_time(test_end - test_start)))
+        log.close()
+        return test_error
+
 
 def create_network(sequence_size, batch_size=1000):
     rng = numpy.random.RandomState(23455)
@@ -363,11 +407,8 @@ def create_network(sequence_size, batch_size=1000):
                     sequence_size=sequence_size)
     return model
 
-
 def train_model(data, name, index, sequence_size=2000):
     training, validation, test = data
-    test_start = time.time()
-    train_set_x, train_set_y = training
     batch_size = 1000
     network = create_network(sequence_size, batch_size)
     fitter = Fitter(network,
@@ -378,57 +419,10 @@ def train_model(data, name, index, sequence_size=2000):
                     learning_rate=0.001,
                     reg_coef1=0.00001,
                     reg_coef2=0.00001)
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0] // batch_size
-    patience = 50
-    step = 1
-    best_error = 1.0
-    test_error = 0
-
     model_name = "best_conv_model_{}_{}".format(name, index)
-
-    log = open('models/{}.log'.format(model_name), 'w')
-
-    for epoch in range(1000):
-        a_cost = 0.0
-        best_valid_error = 1.0
-        epoch_start = time.time()
-        for minibatch_index in xrange(n_train_batches):
-            sys.stdout.write("*")
-            sys.stdout.flush()
-            avg_cost = fitter.train_model(minibatch_index)
-            a_cost += avg_cost / n_train_batches
-            if step % (n_train_batches // 5) == 0:
-                validation_error = fitter.get_validation_error()
-
-                if validation_error < best_valid_error:
-                    best_valid_error = validation_error
-
-                if validation_error < best_error:
-                    with gzip.open('models/{}.pkl.gz'.format(model_name), 'w') as f:
-                        cPickle.dump(network.save_state(), f)
-                    patience = 50
-                    best_error = validation_error
-                    test_error = fitter.get_test_error()
-                else:
-                    patience -= 1
-            step += 1
-
-        print ""
-        if patience < 0:
-            break
-
-        epoch_end = time.time()
-        line = ("epoch: {}, cost: {:.5f}, valid err: {:.5f}, best err: {:.5f}, test err: {:.5f}, time: {}"
-                .format(epoch, a_cost, best_valid_error, best_error, test_error, human_time(epoch_end - epoch_start)))
-        print(line)
-        log.write(line + "\n")
-
-        epoch += 1
-
-    test_end = time.time()
-    log.write("result: {}\n".format(test_error))
-    log.write("time: {}\n".format(human_time(test_end - test_start)))
-    log.close()
+    log_path = 'models/{}.log'.format(model_name)
+    model_path = 'models/{}.pkl.gz'.format(model_name)
+    fitter.do_fit(log_path, model_path)
 
 
 def get_best_interval():
@@ -439,7 +433,7 @@ def main():
     theano.config.openmp = True
     left, right = get_best_interval()
 
-    for data_name in ["positive", "genes-coding", "genes-all", "cage-near-coding", "cage-all"]:
+    for data_name in ["genes-coding", "genes-all", "cage-near-coding", "cage-all"]:
         for i in xrange(3):
             data_set = divide_data(data_name, i)
             data = prepare_data(data_set, interval=(left, right))

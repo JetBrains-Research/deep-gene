@@ -1,18 +1,14 @@
-import sys
+
 import theano
 import numpy
-import time
-
+from time import gmtime, strftime
 from conv import Network, prepare_data, Fitter
-from data import divide_data, shared_dataset, human_time
+from data import divide_data
 
 
 def test_model(data, model_params, sequence_size=2000):
-    test_start = time.time()
     training, validation, test = data
-    train_set_x, train_set_y = training
     batch_size = 1000
-    n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
     rng = numpy.random.RandomState(23455)
     model = Network(rng,
                     batch_size,
@@ -35,46 +31,8 @@ def test_model(data, model_params, sequence_size=2000):
         reg_coef1=model_params["reg_coef1"],
         reg_coef2=model_params["reg_coef2"])
 
-    patience = 50
-    step = 1
-    best_error = 100000
-    test_error = 0
-    for epoch in range(1000):
-        a_cost = 0.0
-        epoch_start = time.time()
-
-        for minibatch_index in xrange(n_train_batches):
-            sys.stdout.write("*")
-            sys.stdout.flush()
-            avg_cost = fitter.train_model(minibatch_index)
-            a_cost += avg_cost / n_train_batches
-            if step % (n_train_batches // 5) == 0:
-                validation_error = fitter.get_validation_error()
-
-                if validation_error < best_error:
-                    patience = 50
-                    best_error = validation_error
-                    test_error = fitter.get_test_error()
-                else:
-                    patience -= 1
-            step += 1
-
-        print ""
-        if patience < 0:
-            break
-
-        epoch_end = time.time()
-
-        print("epoch: {}, cost: {:.5f}, valid error: {:.5f}, test err: {:.5f}, time: {}"
-              .format(epoch, a_cost, best_error, test_error, human_time(epoch_end - epoch_start)))
-
-        epoch += 1
-
-    test_end = time.time()
-    print "result: {}".format(test_error)
-    print "time: {}".format(human_time(test_end - test_start))
-
-    return test_error
+    log_path = "logs/{}.log".format(strftime("%Y-%m-%d-%H:%M:%S", gmtime()))
+    return fitter.do_fit(log_path)
 
 
 def compare_different_models():
