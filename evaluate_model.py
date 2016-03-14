@@ -1,8 +1,9 @@
+import os
 import theano
 import gzip
 import cPickle
 
-from conv import get_best_interval, prepare_data, create_default_network
+from conv import get_best_interval, prepare_data, create_default_network, get_model_parameters_path, get_dataset_types
 from data import divide_data
 
 import matplotlib.pyplot as plt
@@ -14,75 +15,82 @@ def main():
 
     batch_size = 1000
 
-    training, validation, test = prepare_data(divide_data(0), interval=(left, right))
+    for data_name in get_dataset_types():
+        for i in xrange(3):
+            model_path = get_model_parameters_path(data_name, i)
+            if not os.path.exists(model_path):
+                continue
 
-    data_x, data_y = training
+            print(model_path)
 
-    model = create_default_network(right - left, batch_size, data_x, data_y)
+            training, validation, test = prepare_data(divide_data(data_name, i), interval=(left, right))
 
-    with gzip.open('models/best_conv_model_0.pkl.gz', 'r') as f:
-        loaded_state = cPickle.load(f)
-        model.load_state(loaded_state)
+            model = create_default_network(right - left, batch_size)
 
-    test_x, test_y = test
-    probs = []
-    for i in xrange(0, len(test_x), batch_size):
-        p = model.prob(test_x[i: i + batch_size])[:, 1]
-        probs.extend(p.tolist())
+            with gzip.open(model_path, 'r') as f:
+                loaded_state = cPickle.load(f)
+                model.load_state(loaded_state)
 
-    tprs = []
-    fprs = []
+            test_x, test_y = test
+            test_x = test_x.get_value()
+            test_y = test_y.get_value()
+            probabilities = []
 
-    recalls = []
-    precisions = []
+            for i in xrange(0, test_x.shape[0] - batch_size + 1, batch_size):
+                p = model.prob(test_x[i: i + batch_size])[:, 1]
+                probabilities.extend(p.tolist())
 
-    for threshold in list(sorted(probs)):
-        table = [[0, 0], [0, 0]]
-        for p, y in zip(probs, test_y):
-            pred = 1 if p > threshold else 0
-            table[pred][y] += 1
+            tprs = []
+            fprs = []
 
-        tp = float(table[1][1])
-        fp = float(table[1][0])
-        pos = tp + fp
+            recalls = []
+            precisions = []
 
-        fn = float(table[0][1])
-        tn = float(table[0][0])
-        neg = fn + tn
+            for threshold in list(sorted(probabilities)):
+                table = [[0, 0], [0, 0]]
+                for p, y in zip(probabilities, test_y):
+                    pred = 1 if p > threshold else 0
+                    table[pred][y] += 1
 
-        if pos == 0 or neg == 0:
-            continue
+                tp = float(table[1][1])
+                fp = float(table[1][0])
+                pos = tp + fp
 
-        tpr = tp / (tp + fn)
-        fpr = fp / (fp + tn)
+                fn = float(table[0][1])
+                tn = float(table[0][0])
+                neg = fn + tn
 
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
+                if pos == 0 or neg == 0:
+                    continue
 
-        tprs.append(tpr)
-        fprs.append(fpr)
+                tpr = tp / (tp + fn)
+                fpr = fp / (fp + tn)
 
-        recalls.append(recall)
-        precisions.append(precision)
-        print table, precision, recall, tpr, fpr
+                precision = tp / (tp + fp)
+                recall = tp / (tp + fn)
 
-    areaROC = 0.0
-    for i in xrange(1, len((fprs))):
-        dx = - fprs[i] + fprs[i - 1]
-        y = (tprs[i] + tprs[i - 1]) / 2.0
-        areaROC += dx * y
+                tprs.append(tpr)
+                fprs.append(fpr)
 
-    print("Area under ROC: {}".format(areaROC))
+                recalls.append(recall)
+                precisions.append(precision)
+                # print table, precision, recall, tpr, fpr
 
-    areaPRC = 0.0
-    for i in xrange(1, len((recalls))):
-        dx = - recalls[i] + recalls[i - 1]
-        y = (precisions[i] + precisions[i - 1]) / 2.0
-        areaPRC += dx * y
+            areaROC = 0.0
+            for i in xrange(1, len((fprs))):
+                dx = - fprs[i] + fprs[i - 1]
+                y = (tprs[i] + tprs[i - 1]) / 2.0
+                areaROC += dx * y
 
-    print("Area under PRC: {}".format(areaPRC))
+            print("Area under ROC: {}".format(areaROC))
 
+            areaPRC = 0.0
+            for i in xrange(1, len((recalls))):
+                dx = - recalls[i] + recalls[i - 1]
+                y = (precisions[i] + precisions[i - 1]) / 2.0
+                areaPRC += dx * y
 
+            print("Area under PRC: {}".format(areaPRC))
 
 if __name__ == '__main__':
     main()

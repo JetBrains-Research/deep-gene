@@ -144,7 +144,7 @@ class Network(object):
         print '... building the model'
 
         # Construct the first convolutional pooling layer:
-        conv_1, conv1_out_size = self.get_conv1_layer(rng, n_kernels1, pattern1_size, sequence_size)
+        conv_1, conv1_out_size = self.get_conv1_layer(rng, n_kernels1, pattern1_size)
 
         conv_1_output = add_dropout(conv_1.output, is_train, 0.8)
         conv_2 = LeNetConvPoolLayer(
@@ -241,14 +241,14 @@ class Network(object):
         self.fully_connected.load_state(state["fully_connected"])
         self.regression.load_state(state["regression"])
 
-    def get_conv1_layer(self, rng, n_kernels1, pattern1_size, poolsize=(2, 1)):
+    def get_conv1_layer(self, rng, n_kernels1, pattern1_size, pool_size=(2, 1)):
         sequence_size = self.sequence_size
         conv_1 = LeNetConvPoolLayer(
             rng,
             input=self.x.reshape((self.batch_size, 4, sequence_size, 1)),
             image_shape=(self.batch_size, 4, sequence_size, 1),
             filter_shape=(n_kernels1, 4, pattern1_size, 1),
-            poolsize=poolsize
+            poolsize=pool_size
         )
         print("conv_1.W.shape={}".format(conv_1.W.get_value().shape))
         conv1_out_size = (sequence_size - pattern1_size + 1) / 2
