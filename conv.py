@@ -116,14 +116,19 @@ class MultiRegressionLayer(object):
 class Network(object):
     def __init__(self, rng,
                  batch_size,
-                 n_kernels1,
-                 n_kernels2,
-                 n_kernels3,
-                 pattern1_size,
-                 pattern2_size,
-                 pattern3_size,
-                 pool2_size,
-                 sequence_size):
+                 parameters):
+
+        sequence_size = parameters["right"] - parameters["left"]
+        n_kernels1 = parameters["n_kernels1"]
+        n_kernels2 = parameters["n_kernels2"]
+        n_kernels3 = parameters["n_kernels3"]
+        pattern1_size = parameters["pattern1_size"]
+        pattern2_size = parameters["pattern2_size"]
+        pattern3_size = parameters["pattern3_size"]
+        dropout1 = parameters["dropout1"]
+        dropout2 = parameters["dropout2"]
+        dropout3 = parameters["dropout3"]
+
         index = T.lscalar()  # index to a [mini]batch
         x = T.tensor4('x')  # the data is bunch of 3D patterns
         y = T.ivector('y')  # the labels are presented as 1D vector of
@@ -146,19 +151,19 @@ class Network(object):
         # Construct the first convolutional pooling layer:
         conv_1, conv1_out_size = self.get_conv1_layer(rng, n_kernels1, pattern1_size)
 
-        conv_1_output = add_dropout(conv_1.output, is_train, 0.8)
+        conv_1_output = add_dropout(conv_1.output, is_train, 1 - dropout1)
         conv_2 = LeNetConvPoolLayer(
             rng,
             input=conv_1_output,
             image_shape=(batch_size, n_kernels1, conv1_out_size, 1),
             filter_shape=(n_kernels2, n_kernels1, pattern2_size, 1),
-            poolsize=(pool2_size, 1)
+            poolsize=(2, 1)
         )
 
         print("conv_2.W.shape={}".format(conv_2.W.get_value().shape))
 
-        conv2_out_size = (conv1_out_size - pattern2_size + 1) / pool2_size
-        conv_2_output = add_dropout(conv_2.output, is_train, 0.8)
+        conv2_out_size = (conv1_out_size - pattern2_size + 1) / 2
+        conv_2_output = add_dropout(conv_2.output, is_train, 1 - dropout2)
 
         conv_3 = LeNetConvPoolLayer(
             rng,
@@ -171,7 +176,7 @@ class Network(object):
         print("conv_3.W.shape={}".format(conv_3.W.get_value().shape))
 
         conv3_out_size = (conv2_out_size - pattern3_size + 1) / 2
-        conv_3_output = add_dropout(conv_3.output, is_train, 0.8)
+        conv_3_output = add_dropout(conv_3.output, is_train, 1 - dropout3)
 
         mr_layer = MultiRegressionLayer(rng, conv_3_output.flatten(3), n_kernels3, conv3_out_size)
 
@@ -386,7 +391,8 @@ class Fitter():
 
             epoch_end = time.time()
             line = ("epoch: {}, cost: {:.5f}, valid err: {:.5f}, best err: {:.5f}, test err: {:.5f}, time: {}"
-                    .format(epoch, a_cost, best_valid_error, best_error, test_error, human_time(epoch_end - epoch_start)))
+                    .format(epoch, a_cost, best_valid_error, best_error, test_error,
+                            human_time(epoch_end - epoch_start)))
             print(line)
             log.write(line + "\n")
 
@@ -398,18 +404,9 @@ class Fitter():
         return test_error
 
 
-def create_default_network(sequence_size, batch_size=1000):
+def create_default_network(batch_size=1000):
     rng = numpy.random.RandomState(23455)
-    model = Network(rng,
-                    batch_size,
-                    n_kernels1=32,
-                    n_kernels2=64,
-                    n_kernels3=64,
-                    pattern1_size=4,
-                    pattern2_size=6,
-                    pattern3_size=6,
-                    pool2_size=2,
-                    sequence_size=sequence_size)
+    model = Network(rng, batch_size, get_default_parameters())
     return model
 
 
@@ -443,6 +440,25 @@ def train_model(data, dataset_name, index, sequence_size=2000):
 
 def get_best_interval():
     return 1000, 2500
+
+
+def get_default_parameters():
+    return {
+        "left": 1000,
+        "right": 2500,
+        "n_kernels1": 30,
+        "n_kernels2": 60,
+        "n_kernels3": 80,
+        "pattern1_size": 4,
+        "pattern2_size": 6,
+        "pattern3_size": 6,
+        "dropout1": 0.2,
+        "dropout2": 0.2,
+        "dropout3": 0.2,
+        "learning_rate": 0.001,
+        "reg_coef1": 0.00001,
+        "reg_coef2": 0.00001,
+    }
 
 
 def get_dataset_types():

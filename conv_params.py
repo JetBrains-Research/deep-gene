@@ -2,24 +2,15 @@
 import theano
 import numpy
 from time import gmtime, strftime
-from conv import Network, prepare_data, Fitter
+from conv import Network, prepare_data, Fitter, get_default_parameters
 from data import divide_data
 
 
-def test_model(data, model_params, sequence_size=2000):
+def test_model(data, model_params):
     training, validation, test = data
     batch_size = 1000
     rng = numpy.random.RandomState(23455)
-    model = Network(rng,
-                    batch_size,
-                    n_kernels1=model_params["n_kernels1"],
-                    n_kernels2=model_params["n_kernels2"],
-                    n_kernels3=model_params["n_kernels3"],
-                    pattern1_size=model_params["pattern1_size"],
-                    pattern2_size=model_params["pattern2_size"],
-                    pattern3_size=model_params["pattern3_size"],
-                    pool2_size=model_params["pool2_size"],
-                    sequence_size=sequence_size)
+    model = Network(rng, batch_size, model_params)
 
     fitter = Fitter(
         model,
@@ -41,35 +32,32 @@ def compare_different_models():
 
     data_set = [divide_data("genes-coding", i) for i in range(0, 3)]
 
-    for learning_rate in [0.003, 0.001, 0.0003]:
-        current_parameters = {
-            "left": 1000,
-            "right": 2500,
-            "learning_rate": learning_rate,
-            "n_kernels1": 32,
-            "n_kernels2": 64,
-            "n_kernels3": 64,
-            "pattern1_size": 4,
-            "pattern2_size": 6,
-            "pattern3_size": 6,
-            "pool2_size": 2,
-            "reg_coef1": 0.00001,
-            "reg_coef2": 0.00001,
-        }
+    for (d1, d2, d3) in [(0.2, 0.2, 0.2),
+                         (0.1, 0.2, 0.2),
+                         (0.4, 0.2, 0.2),
+                         (0.2, 0.1, 0.2),
+                         (0.2, 0.4, 0.2),
+                         (0.2, 0.2, 0.1),
+                         (0.2, 0.2, 0.4)]:
 
-        print(current_parameters)
-        left = current_parameters["left"]
-        right = current_parameters["right"]
+        parameters = get_default_parameters()
+        parameters["dropout1"] = d1
+        parameters["dropout2"] = d2
+        parameters["dropout3"] = d3
+
+        print(parameters)
+        left = parameters["left"]
+        right = parameters["right"]
 
         result = 0
 
         f.write("simple 3 layers\n")
-        f.write(str(current_parameters) + "\n")
+        f.write(str(parameters) + "\n")
 
         for data in data_set:
             prepared_data = prepare_data(data, interval=(left, right))
 
-            r = test_model(prepared_data, current_parameters, sequence_size=right - left)
+            r = test_model(prepared_data, parameters)
             result += r / 3
 
             f.write("result: {}\n".format(r))
