@@ -128,6 +128,7 @@ class Network(object):
         dropout1 = parameters["dropout1"]
         dropout2 = parameters["dropout2"]
         dropout3 = parameters["dropout3"]
+        dropout4 = parameters["dropout4"]
 
         index = T.lscalar()  # index to a [mini]batch
         x = T.tensor4('x')  # the data is bunch of 3D patterns
@@ -182,7 +183,7 @@ class Network(object):
 
         fully_connected = HiddenLayer(
             rng,
-            add_dropout(mr_layer.output, is_train, 0.5),
+            add_dropout(mr_layer.output, is_train, 1-dropout4),
             n_kernels3,
             n_kernels3,
             activation=relu)
@@ -455,6 +456,7 @@ def get_default_parameters():
         "dropout1": 0.2,
         "dropout2": 0.2,
         "dropout3": 0.2,
+        "dropout4": 0.5,
         "learning_rate": 0.001,
         "reg_coef1": 0.00001,
         "reg_coef2": 0.00001,
