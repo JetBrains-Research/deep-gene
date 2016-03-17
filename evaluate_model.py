@@ -25,7 +25,7 @@ def main():
 
             training, validation, test = prepare_data(divide_data(data_name, i), interval=(left, right))
 
-            model = create_default_network(right - left, batch_size)
+            model = create_default_network(batch_size)
 
             with gzip.open(model_path, 'r') as f:
                 loaded_state = cPickle.load(f)

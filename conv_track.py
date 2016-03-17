@@ -23,9 +23,8 @@ def prepare_genome(interval):
 
 def predict_tracks_conv():
     interval = get_best_interval()
-    left, right = interval
     batch_size = 1000
-    network = create_default_network(right - left, batch_size)
+    network = create_default_network(batch_size)
     for data_name in get_dataset_types():
         for i in range(3):
             model_name = get_model_name(data_name, i)

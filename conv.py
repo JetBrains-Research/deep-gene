@@ -132,7 +132,6 @@ class Network(object):
 
         index = T.lscalar()  # index to a [mini]batch
         x = T.tensor4('x')  # the data is bunch of 3D patterns
-        y = T.ivector('y')  # the labels are presented as 1D vector of
         is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
         self.sequence_size = sequence_size
@@ -140,7 +139,6 @@ class Network(object):
 
         self.index = index
         self.x = x
-        self.y = y
         self.is_train = is_train
 
         # Parameter of network
@@ -280,7 +278,8 @@ class Fitter():
         self.n_validation_batches = validation_set_x.get_value(borrow=True).shape[0] // batch_size
 
         x = network.x
-        y = network.y
+        y = T.ivector('y')  # the labels are presented as 1D vector of
+
         index = network.index
         is_train = network.is_train
 
@@ -424,7 +423,7 @@ def get_model_parameters_path(dataset_name, index):
 def train_model(data, dataset_name, index, sequence_size=2000):
     training, validation, test = data
     batch_size = 1000
-    network = create_default_network(sequence_size, batch_size)
+    network = create_default_network(batch_size)
     fitter = Fitter(network,
                     training,
                     validation,

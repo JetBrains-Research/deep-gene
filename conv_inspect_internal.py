@@ -22,7 +22,7 @@ def do_it():
     interval = get_best_interval()
     left, right = interval
 
-    model = create_default_network(right - left, batch_size)
+    model = create_default_network(batch_size)
 
     with gzip.open('models/best_conv_model_genes-coding_0.pkl.gz', 'r') as f:
         model.load_state(cPickle.load(f))

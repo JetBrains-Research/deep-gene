@@ -32,18 +32,9 @@ def compare_different_models():
 
     data_set = [divide_data("genes-coding", i) for i in range(0, 3)]
 
-    for (d1, d2, d3) in [(0.2, 0.2, 0.2),
-                         (0.1, 0.2, 0.2),
-                         (0.4, 0.2, 0.2),
-                         (0.2, 0.1, 0.2),
-                         (0.2, 0.4, 0.2),
-                         (0.2, 0.2, 0.1),
-                         (0.2, 0.2, 0.4)]:
-
+    for (k3) in [60, 80, 100]:
         parameters = get_default_parameters()
-        parameters["dropout1"] = d1
-        parameters["dropout2"] = d2
-        parameters["dropout3"] = d3
+        parameters["n_kernels3"] = k3
 
         print(parameters)
         left = parameters["left"]
