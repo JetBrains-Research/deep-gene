@@ -351,7 +351,7 @@ class Fitter():
 
     def do_fit(self, log_path, model_path=None):
         test_start = time.time()
-        patience = 50
+        patience = 100
         step = 1
         best_error = 1.0
         test_error = 0
@@ -378,7 +378,7 @@ class Fitter():
                         if model_path is not None:
                             with gzip.open(model_path, 'w') as f:
                                 cPickle.dump(self.network.save_state(), f)
-                        patience = 50
+                        patience = 100
                         best_error = validation_error
                         test_error = self.get_test_error()
                     else:
@@ -448,7 +448,7 @@ def get_default_parameters():
         "right": 2500,
         "n_kernels1": 30,
         "n_kernels2": 60,
-        "n_kernels3": 80,
+        "n_kernels3": 60,
         "pattern1_size": 4,
         "pattern2_size": 6,
         "pattern3_size": 6,

@@ -74,9 +74,9 @@ def divide_data(name, index):
             c = cut([it[0] for it in data], size)
             return data[:c], data[c:]
 
-        train_size = ((pos_size + neg_size) // 10000) * 1000
-        test, combined = divide(combined, train_size)
-        valid, combined = divide(combined, train_size)
+        test_size = ((pos_size + neg_size) // 10000) * 1000
+        test, combined = divide(combined, test_size)
+        valid, combined = divide(combined, test_size)
         train = combined
 
         def flatten_first(data):
