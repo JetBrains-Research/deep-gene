@@ -122,6 +122,7 @@ class Network(object):
         n_kernels1 = parameters["n_kernels1"]
         n_kernels2 = parameters["n_kernels2"]
         n_kernels3 = parameters["n_kernels3"]
+        n_fully_connected = parameters["n_fully_connected"]
         pattern1_size = parameters["pattern1_size"]
         pattern2_size = parameters["pattern2_size"]
         pattern3_size = parameters["pattern3_size"]
@@ -183,10 +184,10 @@ class Network(object):
             rng,
             add_dropout(mr_layer.output, is_train, 1-dropout4),
             n_kernels3,
-            n_kernels3,
+            n_fully_connected,
             activation=relu)
 
-        regression = LogisticRegression(input=fully_connected.output, n_in=n_kernels3, n_out=2)
+        regression = LogisticRegression(input=fully_connected.output, n_in=n_fully_connected, n_out=2)
 
         self.predict = theano.function(
             [x],
@@ -449,6 +450,7 @@ def get_default_parameters():
         "n_kernels1": 30,
         "n_kernels2": 60,
         "n_kernels3": 60,
+        "n_fully_connected": 60,
         "pattern1_size": 4,
         "pattern2_size": 6,
         "pattern3_size": 6,
