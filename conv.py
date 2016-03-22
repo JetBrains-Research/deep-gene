@@ -313,7 +313,7 @@ class Fitter():
 
         self.train_model = theano.function(
             inputs=[index],
-            outputs=cost,
+            outputs=(cost, network.regression.errors(y)),
             updates=updates,
             givens={
                 x: train_set_x[index * batch_size:(index + 1) * batch_size],
@@ -362,13 +362,15 @@ class Fitter():
         log = open(log_path, 'w')
         for epoch in range(1000):
             a_cost = 0.0
+            a_train_error = 0.0
             best_valid_error = 1.0
             epoch_start = time.time()
             for minibatch_index in xrange(n_train_batches):
                 sys.stdout.write("*")
                 sys.stdout.flush()
-                avg_cost = self.train_model(minibatch_index)
-                a_cost += avg_cost / n_train_batches
+                (cost, train_error) = self.train_model(minibatch_index)
+                a_cost += cost / n_train_batches
+                a_train_error += train_error / n_train_batches
                 if step % (n_train_batches // 5) == 0:
                     validation_error = self.get_validation_error()
 
@@ -391,8 +393,8 @@ class Fitter():
                 break
 
             epoch_end = time.time()
-            line = ("epoch: {}, cost: {:.5f}, valid err: {:.5f}, best err: {:.5f}, test err: {:.5f}, time: {}"
-                    .format(epoch, a_cost, best_valid_error, best_error, test_error,
+            line = ("epoch: {}, cost: {:.5f}, train err: {:.5f}, valid err: {:.5f}, best err: {:.5f}, test err: {:.5f}, time: {}"
+                    .format(epoch, a_cost, a_train_error, best_valid_error, best_error, test_error,
                             human_time(epoch_end - epoch_start)))
             print(line)
             log.write(line + "\n")
