@@ -7,14 +7,16 @@ import subprocess
 server = ""
 key = ""
 
-def help():
-   print """
+
+def show_help():
+    print """
 s [server]      - set server
 k [path to pem] - set key file
 m               - move all data to server
 c               - connect to  server
 q               - quit console
 """
+
 
 def read_properties():
     global server, key
@@ -24,6 +26,7 @@ def read_properties():
         server = lines[0][:-1]
         key = lines[1][:-1]
         f.close()
+
 
 def write_properties():
     f = open('.aws-config', 'w')
@@ -41,26 +44,32 @@ def main():
     print("Server:[{}]".format(server))
     print("Key:[{}]".format(key))
 
-    while(True):
-        input = raw_input('>')
+    while True:
+        user_input = raw_input('>')
 
-        if input.startswith("s"):
-            server = input.split(" ")[1]
+        if user_input.startswith("s"):
+            server = user_input.split(" ")[1]
             write_properties()
 
-        if input.startswith("c"):
-             subprocess.call(["ssh", "-i", key,  "ubuntu@" + server])
+        if user_input.startswith("c"):
+            subprocess.call(["ssh", "-i", key, "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
+                             "ubuntu@" + server])
 
-        if input.startswith("k"):
-            key = input.split(" ")[1]
+        if user_input.startswith("m"):
+            subprocess.call(["scp", "-i", key,  "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
+                             "-r", "../deep-gene/", "ubuntu@" + server + ":~"])
+
+        if user_input.startswith("k"):
+            key = user_input.split(" ")[1]
             write_properties()
 
-        if input == "q":
+        if user_input == "q":
             print("Exit")
             break
 
-        if input == "h":
-            help()
+        if user_input == "h":
+            show_help()
+
 
 if __name__ == '__main__':
     main()
