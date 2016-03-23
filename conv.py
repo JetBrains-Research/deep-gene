@@ -126,10 +126,12 @@ class Network(object):
         pattern1_size = parameters["pattern1_size"]
         pattern2_size = parameters["pattern2_size"]
         pattern3_size = parameters["pattern3_size"]
+        dropout0 = parameters["dropout0"]
         dropout1 = parameters["dropout1"]
         dropout2 = parameters["dropout2"]
         dropout3 = parameters["dropout3"]
         dropout4 = parameters["dropout4"]
+        dropout5 = parameters["dropout5"]
 
         index = T.lscalar()  # index to a [mini]batch
         x = T.tensor4('x')  # the data is bunch of 3D patterns
@@ -148,10 +150,18 @@ class Network(object):
         # BUILD ACTUAL MODEL
         print '... building the model'
 
-        # Construct the first convolutional pooling layer:
-        conv_1, conv1_out_size = self.get_conv1_layer(rng, n_kernels1, pattern1_size)
+        conv1_input = add_dropout(self.x.reshape((self.batch_size, 4, sequence_size, 1)), is_train, 1 - dropout0)
 
+        conv_1 = LeNetConvPoolLayer(
+            rng,
+            input=conv1_input,
+            image_shape=(self.batch_size, 4, sequence_size, 1),
+            filter_shape=(n_kernels1, 4, pattern1_size, 1),
+            poolsize=(2, 1)
+        )
+        conv1_out_size = (sequence_size - pattern1_size + 1) / 2
         conv_1_output = add_dropout(conv_1.output, is_train, 1 - dropout1)
+
         conv_2 = LeNetConvPoolLayer(
             rng,
             input=conv_1_output,
@@ -159,8 +169,6 @@ class Network(object):
             filter_shape=(n_kernels2, n_kernels1, pattern2_size, 1),
             poolsize=(2, 1)
         )
-
-        print("conv_2.W.shape={}".format(conv_2.W.get_value().shape))
 
         conv2_out_size = (conv1_out_size - pattern2_size + 1) / 2
         conv_2_output = add_dropout(conv_2.output, is_train, 1 - dropout2)
@@ -172,8 +180,6 @@ class Network(object):
             filter_shape=(n_kernels3, n_kernels2, pattern3_size, 1),
             poolsize=(2, 1)
         )
-
-        print("conv_3.W.shape={}".format(conv_3.W.get_value().shape))
 
         conv3_out_size = (conv2_out_size - pattern3_size + 1) / 2
         conv_3_output = add_dropout(conv_3.output, is_train, 1 - dropout3)
@@ -187,7 +193,8 @@ class Network(object):
             n_fully_connected,
             activation=relu)
 
-        regression = LogisticRegression(input=fully_connected.output, n_in=n_fully_connected, n_out=2)
+        regression_input = add_dropout(fully_connected.output, is_train, 1 - dropout5)
+        regression = LogisticRegression(input=regression_input, n_in=n_fully_connected, n_out=2)
 
         self.predict = theano.function(
             [x],
@@ -245,19 +252,6 @@ class Network(object):
         self.mr_layer.load_state(state["mr_layer"])
         self.fully_connected.load_state(state["fully_connected"])
         self.regression.load_state(state["regression"])
-
-    def get_conv1_layer(self, rng, n_kernels1, pattern1_size, pool_size=(2, 1)):
-        sequence_size = self.sequence_size
-        conv_1 = LeNetConvPoolLayer(
-            rng,
-            input=self.x.reshape((self.batch_size, 4, sequence_size, 1)),
-            image_shape=(self.batch_size, 4, sequence_size, 1),
-            filter_shape=(n_kernels1, 4, pattern1_size, 1),
-            poolsize=pool_size
-        )
-        print("conv_1.W.shape={}".format(conv_1.W.get_value().shape))
-        conv1_out_size = (sequence_size - pattern1_size + 1) / 2
-        return conv_1, conv1_out_size
 
 class Fitter():
     def __init__(self,
@@ -393,9 +387,10 @@ class Fitter():
                 break
 
             epoch_end = time.time()
-            line = ("epoch: {}, cost: {:.5f}, train err: {:.5f}, valid err: {:.5f}, best err: {:.5f}, test err: {:.5f}, time: {}"
-                    .format(epoch, a_cost, a_train_error, best_valid_error, best_error, test_error,
-                            human_time(epoch_end - epoch_start)))
+            line = (("epoch: {}, cost: {:.5f}, train err: {:.5f}, valid err: {:.5f}, " +
+                     "best err: {:.5f}, test err: {:.5f}, time: {}")
+                    .format(epoch, a_cost, a_train_error, best_valid_error,
+                            best_error, test_error, human_time(epoch_end - epoch_start)))
             print(line)
             log.write(line + "\n")
 
@@ -456,10 +451,12 @@ def get_default_parameters():
         "pattern1_size": 4,
         "pattern2_size": 6,
         "pattern3_size": 6,
+        "dropout0": 0.1,
         "dropout1": 0.2,
         "dropout2": 0.2,
         "dropout3": 0.2,
         "dropout4": 0.5,
+        "dropout5": 0.1,
         "learning_rate": 0.001,
         "reg_coef1": 0.00001,
         "reg_coef2": 0.00001,
