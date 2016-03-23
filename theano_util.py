@@ -5,15 +5,7 @@ import theano.tensor as T
 from theano.tensor.signal import downsample
 from theano.tensor.nnet import conv
 
-rng = numpy.random.RandomState(1234)
-
-if theano.config.device == "cpu":
-    srng = T.shared_randomstreams.RandomStreams(rng.randint(999999))
-else:
-    srng = theano.sandbox.cuda.rng_curand.CURAND_RandomStreams(rng.randint(999999))
-
-
-def drop_cpu(input, p):
+def drop_cpu(input, p, rng):
     """
     :type input: numpy.array
     :param input: layer or weight matrix on which dropout resp. dropconnect is applied
@@ -22,10 +14,11 @@ def drop_cpu(input, p):
     :param p: p probability of NOT dropping out a unit or connection, therefore (1.-p) is the drop rate.
 
     """
+    srng = T.shared_randomstreams.RandomStreams(rng.randint(999999))
     mask = srng.binomial(n=1, p=p, size=input.shape, dtype=theano.config.floatX)
     return input * mask
 
-def drop_cuda(input, p):
+def drop_cuda(input, p, rng):
     """
     :type input: numpy.array
     :param input: layer or weight matrix on which dropout resp. dropconnect is applied
@@ -34,6 +27,7 @@ def drop_cuda(input, p):
     :param p: p probability of NOT dropping out a unit or connection, therefore (1.-p) is the drop rate.
 
     """
+    srng = theano.sandbox.cuda.rng_curand.CURAND_RandomStreams(rng.randint(999999))
     mask = srng.uniform(size=input.shape, dtype=theano.config.floatX) < p
     return input * mask
 
@@ -43,8 +37,8 @@ if theano.config.device == "cpu":
 else:
     drop = drop_cuda
 
-def add_dropout(output, is_train, p):
-    train_output = drop(numpy.cast[theano.config.floatX](1./p) * output, p)
+def add_dropout(output, is_train, p, rng):
+    train_output = drop(numpy.cast[theano.config.floatX](1./p) * output, p, rng)
 
     #is_train is a pseudo boolean theano variable for switching between training and prediction
     return T.switch(T.neq(is_train, 0), train_output, output)

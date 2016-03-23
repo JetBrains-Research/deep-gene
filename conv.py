@@ -1,4 +1,3 @@
-import random
 import sys
 import gzip
 import cPickle
@@ -25,61 +24,6 @@ def prepare_data(data, interval):
         return shared_dataset(unzip(binary_data))
 
     return prepossess(train), prepossess(valid), prepossess(test)
-
-
-def get_pattern_function1(batch_size, sequence_size, pattern1_size, n_kernels1, conv_1_params):
-    rng = numpy.random.RandomState(23455)
-
-    x = T.tensor4('x')  # the data is bunch of 3D patterns
-
-    conv_1 = LeNetConvPoolLayer(
-        rng,
-        input=x,
-        image_shape=(batch_size, 4, sequence_size, 1),
-        filter_shape=(n_kernels1, 4, pattern1_size, 1),
-        poolsize=(1, 1)
-    )
-
-    conv_1.load_state(conv_1_params)
-
-    return theano.function(
-        [x],
-        conv_1.output
-    )
-
-
-def get_pattern_function2(batch_size, sequence_size, pattern1_size, pattern2_size, n_kernels1, n_kernels2,
-                          layer0_params, layer1_params):
-    rng = numpy.random.RandomState(23455)
-
-    x = T.tensor4('x')  # the data is bunch of 3D patterns
-
-    layer0 = LeNetConvPoolLayer(
-        rng,
-        input=x,
-        image_shape=(batch_size, 4, sequence_size, 1),
-        filter_shape=(n_kernels1, 4, pattern1_size, 1),
-        poolsize=(2, 1)
-    )
-
-    layer0.load_state(layer0_params)
-
-    layer0_out_size = (sequence_size - pattern1_size + 1) / 2
-
-    layer1 = LeNetConvPoolLayer(
-        rng,
-        input=layer0.output,
-        image_shape=(batch_size, n_kernels1, layer0_out_size, 1),
-        filter_shape=(n_kernels2, n_kernels1, pattern2_size, 1),
-        poolsize=(1, 1)
-    )
-
-    layer1.load_state(layer1_params)
-
-    return theano.function(
-        [x],
-        layer1.output
-    )
 
 
 class MultiRegressionLayer(object):
@@ -113,22 +57,77 @@ class MultiRegressionLayer(object):
         self.b.set_value(state["b"])
 
 
-class Network(object):
+class ConvolutionPart(object):
     def __init__(self, rng,
+                 parameters,
                  batch_size,
-                 parameters):
+                 sequence_size,
+                 x,
+                 is_train,
+                 inspect=False):
 
-        sequence_size = parameters["right"] - parameters["left"]
         n_kernels1 = parameters["n_kernels1"]
         n_kernels2 = parameters["n_kernels2"]
         n_kernels3 = parameters["n_kernels3"]
-        n_fully_connected = parameters["n_fully_connected"]
         pattern1_size = parameters["pattern1_size"]
         pattern2_size = parameters["pattern2_size"]
         pattern3_size = parameters["pattern3_size"]
         dropout0 = parameters["dropout0"]
         dropout1 = parameters["dropout1"]
         dropout2 = parameters["dropout2"]
+
+        conv1_input = add_dropout(x.reshape((batch_size, 4, sequence_size, 1)), is_train, 1 - dropout0, rng)
+
+        conv_1 = LeNetConvPoolLayer(
+            rng,
+            input=conv1_input,
+            image_shape=(batch_size, 4, sequence_size, 1),
+            filter_shape=(n_kernels1, 4, pattern1_size, 1),
+            poolsize=(2, 1)
+        )
+        conv1_out_size = (sequence_size - pattern1_size + 1) // 2
+        conv_1_output = add_dropout(conv_1.output, is_train, 1 - dropout1, rng)
+
+        conv_2 = LeNetConvPoolLayer(
+            rng,
+            input=conv_1_output,
+            image_shape=(batch_size, n_kernels1, conv1_out_size, 1),
+            filter_shape=(n_kernels2, n_kernels1, pattern2_size, 1),
+            poolsize=(2, 1)
+        )
+
+        conv2_out_size = (conv1_out_size - pattern2_size + 1) // 2
+        conv_2_output = add_dropout(conv_2.output, is_train, 1 - dropout2, rng)
+
+        conv_3 = LeNetConvPoolLayer(
+            rng,
+            input=conv_2_output,
+            image_shape=(batch_size, n_kernels2, conv2_out_size, 1),
+            filter_shape=(n_kernels3, n_kernels2, pattern3_size, 1),
+            poolsize=((1, 1) if inspect else (2, 1))
+        )
+
+        conv3_out_size = (conv2_out_size - pattern3_size + 1) // (1 if inspect else 2)
+
+        self.conv_1 = conv_1
+        self.conv_2 = conv_2
+        self.conv_3 = conv_3
+        self.conv3_out_size = conv3_out_size
+
+    def load_state(self, state):
+        self.conv_1.load_state(state["conv_1"])
+        self.conv_2.load_state(state["conv_2"])
+        self.conv_3.load_state(state["conv_3"])
+
+
+class Network(object):
+    def __init__(self, rng,
+                 batch_size,
+                 parameters):
+
+        sequence_size = parameters["right"] - parameters["left"]
+        n_kernels3 = parameters["n_kernels3"]
+        n_fully_connected = parameters["n_fully_connected"]
         dropout3 = parameters["dropout3"]
         dropout4 = parameters["dropout4"]
         dropout5 = parameters["dropout5"]
@@ -144,56 +143,38 @@ class Network(object):
         self.x = x
         self.is_train = is_train
 
-        # Parameter of network
-
-
         # BUILD ACTUAL MODEL
         print '... building the model'
 
-        conv1_input = add_dropout(self.x.reshape((self.batch_size, 4, sequence_size, 1)), is_train, 1 - dropout0)
-
-        conv_1 = LeNetConvPoolLayer(
+        convolution_part = ConvolutionPart(
             rng,
-            input=conv1_input,
-            image_shape=(self.batch_size, 4, sequence_size, 1),
-            filter_shape=(n_kernels1, 4, pattern1_size, 1),
-            poolsize=(2, 1)
-        )
-        conv1_out_size = (sequence_size - pattern1_size + 1) / 2
-        conv_1_output = add_dropout(conv_1.output, is_train, 1 - dropout1)
+            parameters,
+            batch_size,
+            sequence_size,
+            x,
+            is_train)
 
-        conv_2 = LeNetConvPoolLayer(
-            rng,
-            input=conv_1_output,
-            image_shape=(batch_size, n_kernels1, conv1_out_size, 1),
-            filter_shape=(n_kernels2, n_kernels1, pattern2_size, 1),
-            poolsize=(2, 1)
-        )
+        conv_1 = convolution_part.conv_1
+        conv_2 = convolution_part.conv_2
+        conv_3 = convolution_part.conv_3
+        conv3_out_size = convolution_part.conv3_out_size
 
-        conv2_out_size = (conv1_out_size - pattern2_size + 1) / 2
-        conv_2_output = add_dropout(conv_2.output, is_train, 1 - dropout2)
+        self.conv_1 = conv_1
+        self.conv_2 = conv_2
+        self.conv_3 = conv_3
 
-        conv_3 = LeNetConvPoolLayer(
-            rng,
-            input=conv_2_output,
-            image_shape=(batch_size, n_kernels2, conv2_out_size, 1),
-            filter_shape=(n_kernels3, n_kernels2, pattern3_size, 1),
-            poolsize=(2, 1)
-        )
-
-        conv3_out_size = (conv2_out_size - pattern3_size + 1) / 2
-        conv_3_output = add_dropout(conv_3.output, is_train, 1 - dropout3)
+        conv_3_output = add_dropout(conv_3.output, is_train, 1 - dropout3, rng)
 
         mr_layer = MultiRegressionLayer(rng, conv_3_output.flatten(3), n_kernels3, conv3_out_size)
 
         fully_connected = HiddenLayer(
             rng,
-            add_dropout(mr_layer.output, is_train, 1-dropout4),
+            add_dropout(mr_layer.output, is_train, 1-dropout4, rng),
             n_kernels3,
             n_fully_connected,
             activation=relu)
 
-        regression_input = add_dropout(fully_connected.output, is_train, 1 - dropout5)
+        regression_input = add_dropout(fully_connected.output, is_train, 1 - dropout5, rng)
         regression = LogisticRegression(input=regression_input, n_in=n_fully_connected, n_out=2)
 
         self.predict = theano.function(
@@ -418,7 +399,7 @@ def get_model_parameters_path(dataset_name, index):
     return model_path
 
 
-def train_model(data, dataset_name, index, sequence_size=2000):
+def train_model(data, dataset_name, index):
     training, validation, test = data
     batch_size = 1000
     network = create_default_network(batch_size)
@@ -476,7 +457,7 @@ def main():
             data_set = divide_data(data_name, i)
             data = prepare_data(data_set, interval=(left, right))
 
-            train_model(data, data_name, index=i, sequence_size=(right - left))
+            train_model(data, data_name, index=i)
 
 
 if __name__ == '__main__':
