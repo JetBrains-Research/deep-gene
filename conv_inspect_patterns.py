@@ -61,7 +61,7 @@ def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
             for i in xrange(n_kernels):
                 t = results[:, i, 0, 0]
                 best[i].extend(zip(t.tolist(), nmers))
-                best[i] = list(sorted(best[i]))[-1000:]
+                best[i] = list(sorted(best[i]))[-500:]
 
             nmers = []
 
