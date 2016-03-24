@@ -5,7 +5,7 @@ import theano
 import theano.tensor as T
 
 import numpy
-from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart
+from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2
 import matplotlib.pyplot as plt
 
 from data import convert_to_binary_layered, divide_data, unzip
@@ -23,16 +23,43 @@ def get_nmers_iterator(n):
                            cut_to_nmers(unzip(valid)[0], n),
                            cut_to_nmers(unzip(test)[0], n))
 
-def get_nmers(n):
-    nmers_set = set()
+
+def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
+    best = [[] for _ in xrange(n_kernels)]
+    used_nmers = set()
+    nmers = []
     for nmer in get_nmers_iterator(n):
-        nmers_set.add(nmer)
-        if len(nmers_set) >= 1000 * 1000:
-            break
-    return list(nmers_set)
+        if nmer in used_nmers:
+            continue
+
+        nmers.append(nmer)
+        used_nmers.add(nmer)
+        if len(nmers) == batch_size:
+            results = predict([convert_to_binary_layered(s) for s in nmers])
+
+            for i in xrange(n_kernels):
+                t = results[:, i, 0, 0]
+                best[i].extend(zip(t.tolist(), nmers))
+                best[i] = list(sorted(best[i]))[-1000:]
+
+            for i in xrange(n_kernels):
+                with open('patterns/{}_pattern_{}.txt'.format(prefix, i), 'w') as f:
+                    f.write("Pattern {} best\n".format(i))
+                    for score, seq in best[i]:
+                        f.write(seq + " " + str(score) + "\n")
+
+                with open('patterns/{}_pattern_{}.fasta'.format(prefix, i), 'w') as f:
+                    for score, seq in best[i]:
+                        f.write(seq + "\n")
+
+            nmers = []
+
+        if len(used_nmers) > 1000000:
+            used_nmers = set()
+            print("Clean cache")
 
 
-def inspect_pattern(model_path):
+def inspect_pattern3(model_path):
     n = 37
 
     default_parameters = get_default_parameters()
@@ -41,21 +68,16 @@ def inspect_pattern(model_path):
 
     batch_size = 1000
 
-    # for i in xrange(kernel2):
-    #plt.plot(x, w[i, :], color="b")
-    #plt.savefig('patterns/plot_{}.png'.format(i))
-    #plt.close()
-
     rng = numpy.random.RandomState(23455)
 
     x = T.tensor4('x')  # the data is bunch of 3D patterns
     is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
-    convolution = ConvolutionPart(
+    convolution = ConvolutionPart3(
         rng,
         default_parameters,
         batch_size,
-        37,
+        n,
         x,
         is_train,
         inspect=True)
@@ -72,32 +94,68 @@ def inspect_pattern(model_path):
         }
     )
 
-    nmers_list = get_nmers(n)
-
-    print("{}-mer set: {}".format(n, len(nmers_list)))
-    best = [[] for _ in xrange(kernel3)]
-
-    for offset in range(0, len(nmers_list), 1000):
-        print("{}/{}".format(offset, len(nmers_list)))
-
-        nmers = nmers_list[offset:offset + 1000]
-        results = predict([convert_to_binary_layered(s) for s in nmers])
-
-        for i in xrange(kernel3):
-            t = results[:, i, 0, 0]
-            best[i].extend(zip(t.tolist(), nmers))
-            best[i] = list(sorted(best[i]))[-1000:]
+    inspect_patterns("conv3", batch_size, kernel3, n, predict)
 
 
-        for i in xrange(kernel3):
-            with open('patterns/conv_2_pattern_{}.txt'.format(i), 'w') as f:
-                f.write("Pattern {} best\n".format(i))
-                for score, seq in best[i]:
-                    f.write(seq + " " + str(score) + "\n")
+def inspect_pattern2(model_path):
+    n = 15
+
+    default_parameters = get_default_parameters()
+
+    kernel2 = default_parameters["n_kernels2"]
+
+    batch_size = 1000
+
+    rng = numpy.random.RandomState(23455)
+
+    x = T.tensor4('x')  # the data is bunch of 3D patterns
+    is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
+
+    convolution = ConvolutionPart2(
+        rng,
+        default_parameters,
+        batch_size,
+        n,
+        x,
+        is_train,
+        inspect=True)
+
+    with gzip.open(model_path, 'r') as f:
+        loaded_state = cPickle.load(f)
+        convolution.load_state(loaded_state)
+
+    predict = theano.function(
+        [x],
+        convolution.conv_2.output,
+        givens={
+            is_train: numpy.cast['int32'](0)
+        }
+    )
+
+    inspect_patterns("conv2", batch_size, kernel2, n, predict)
 
 
 def do_it():
-    inspect_pattern(get_model_parameters_path("genes-coding", 0))
+    default_parameters = get_default_parameters()
+    model_path = get_model_parameters_path("genes-coding", 0)
+
+    kernel3 = default_parameters["n_kernels3"]
+
+    with gzip.open(model_path, 'r') as f:
+        loaded_state = cPickle.load(f)
+        mr_layer = loaded_state["mr_layer"]
+
+
+    w = mr_layer["W"]
+
+    for i in xrange(kernel3):
+        x = numpy.arange(0, w.shape[1])
+        plt.plot(x, w[i, :], color="b")
+        plt.savefig('patterns/plot_{}.png'.format(i))
+        plt.close()
+
+    inspect_pattern2(model_path)
+    inspect_pattern3(model_path)
 
 
 if __name__ == '__main__':

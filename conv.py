@@ -56,8 +56,7 @@ class MultiRegressionLayer(object):
         self.W.set_value(state["W"])
         self.b.set_value(state["b"])
 
-
-class ConvolutionPart(object):
+class ConvolutionPart2(object):
     def __init__(self, rng,
                  parameters,
                  batch_size,
@@ -68,13 +67,10 @@ class ConvolutionPart(object):
 
         n_kernels1 = parameters["n_kernels1"]
         n_kernels2 = parameters["n_kernels2"]
-        n_kernels3 = parameters["n_kernels3"]
         pattern1_size = parameters["pattern1_size"]
         pattern2_size = parameters["pattern2_size"]
-        pattern3_size = parameters["pattern3_size"]
         dropout0 = parameters["dropout0"]
         dropout1 = parameters["dropout1"]
-        dropout2 = parameters["dropout2"]
 
         conv1_input = add_dropout(x.reshape((batch_size, 4, sequence_size, 1)), is_train, 1 - dropout0, rng)
 
@@ -93,10 +89,46 @@ class ConvolutionPart(object):
             input=conv_1_output,
             image_shape=(batch_size, n_kernels1, conv1_out_size, 1),
             filter_shape=(n_kernels2, n_kernels1, pattern2_size, 1),
-            poolsize=(2, 1)
+            poolsize=((1, 1) if inspect else (2, 1))
         )
 
-        conv2_out_size = (conv1_out_size - pattern2_size + 1) // 2
+        conv2_out_size = (conv1_out_size - pattern2_size + 1) // (1 if inspect else 2)
+
+        self.conv_1 = conv_1
+        self.conv_2 = conv_2
+        self.conv2_out_size = conv2_out_size
+
+    def load_state(self, state):
+        self.conv_1.load_state(state["conv_1"])
+        self.conv_2.load_state(state["conv_2"])
+
+
+class ConvolutionPart3(object):
+    def __init__(self, rng,
+                 parameters,
+                 batch_size,
+                 sequence_size,
+                 x,
+                 is_train,
+                 inspect=False):
+
+        n_kernels2 = parameters["n_kernels2"]
+        n_kernels3 = parameters["n_kernels3"]
+        pattern3_size = parameters["pattern3_size"]
+        dropout2 = parameters["dropout2"]
+
+        convolution_part = ConvolutionPart2(
+            rng,
+            parameters,
+            batch_size,
+            sequence_size,
+            x,
+            is_train)
+
+        conv_1 = convolution_part.conv_1
+        conv_2 = convolution_part.conv_2
+        conv2_out_size = convolution_part.conv2_out_size
+
         conv_2_output = add_dropout(conv_2.output, is_train, 1 - dropout2, rng)
 
         conv_3 = LeNetConvPoolLayer(
@@ -146,7 +178,7 @@ class Network(object):
         # BUILD ACTUAL MODEL
         print '... building the model'
 
-        convolution_part = ConvolutionPart(
+        convolution_part = ConvolutionPart3(
             rng,
             parameters,
             batch_size,
