@@ -1,6 +1,7 @@
 import gzip
 import cPickle
 import itertools
+import subprocess
 import theano
 import theano.tensor as T
 
@@ -24,6 +25,26 @@ def get_nmers_iterator(n):
                            cut_to_nmers(unzip(test)[0], n))
 
 
+def write_paterns(best, n_kernels, prefix):
+    for i in xrange(n_kernels):
+        base_name = 'patterns/{}_pattern_{}'.format(prefix, i)
+        with open(base_name + '.txt', 'w') as f:
+            f.write("Pattern {} best\n".format(i))
+            for score, seq in best[i]:
+                f.write(seq + " " + str(score) + "\n")
+
+        with open(base_name + '.fasta', 'w') as f:
+            for score, seq in best[i]:
+                f.write(seq + "\n")
+
+        subprocess.call(["weblogo",
+                         "-s", "large",
+                         "-c", "classic",
+                         "-F", "png",
+                         "-f", base_name + ".fasta",
+                         "-o", base_name + ".png"])
+
+
 def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
     best = [[] for _ in xrange(n_kernels)]
     used_nmers = set()
@@ -42,21 +63,14 @@ def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
                 best[i].extend(zip(t.tolist(), nmers))
                 best[i] = list(sorted(best[i]))[-1000:]
 
-            for i in xrange(n_kernels):
-                with open('patterns/{}_pattern_{}.txt'.format(prefix, i), 'w') as f:
-                    f.write("Pattern {} best\n".format(i))
-                    for score, seq in best[i]:
-                        f.write(seq + " " + str(score) + "\n")
-
-                with open('patterns/{}_pattern_{}.fasta'.format(prefix, i), 'w') as f:
-                    for score, seq in best[i]:
-                        f.write(seq + "\n")
-
             nmers = []
 
-        if len(used_nmers) > 1000000:
+        if len(used_nmers) > 2000000:
+            write_paterns(best, n_kernels, prefix)
             used_nmers = set()
             print("Clean cache")
+
+    write_paterns(best, n_kernels, prefix)
 
 
 def inspect_pattern3(model_path):
