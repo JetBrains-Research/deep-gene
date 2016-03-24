@@ -477,7 +477,8 @@ def get_default_parameters():
 
 
 def get_dataset_types():
-    return ["genes-coding", "genes-all", "cage-near-coding", "cage-all"]
+    return ["mm9_genes_coding", "mm9_genes_all", "mm9_cage_near_coding", "mm9_cage_all",
+            "hg19_genes_coding", "hg19_genes_all", "hg19_cage_near_coding", "hg19_cage_all"]
 
 
 def main():
