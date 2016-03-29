@@ -21,6 +21,21 @@ def convert_to_binary_layered(s):
     return l
 
 
+def convert_to_number(s):
+    letters = {
+        'a': 0,
+        't': 1,
+        'g': 2,
+        'c': 3}
+
+    l = numpy.zeros(shape=(len(s),), dtype=numpy.int8)
+
+    for i, letter in enumerate(s):
+        l[i] = letters[letter]
+
+    return l
+
+
 def convert_to_binary_flat(s):
     letters = {
         'a': [1, 0, 0, 0],
@@ -145,10 +160,10 @@ def shared_dataset(data_xy, borrow=True):
     """
     data_x, data_y = data_xy
     shared_x = theano.shared(numpy.asarray(data_x,
-                                           dtype=theano.config.floatX),
+                                           dtype='int8'),
                              borrow=borrow)
     shared_y = theano.shared(numpy.asarray(data_y,
-                                           dtype='int32'),
+                                           dtype='int8'),
                              borrow=borrow)
     # When storing data on the GPU it has to be stored as floats
     # therefore we will store the labels as ``floatX`` as well

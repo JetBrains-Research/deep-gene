@@ -3,7 +3,8 @@ import cPickle
 
 import numpy
 import theano
-from conv import get_best_interval, create_default_network, get_dataset_types, get_model_parameters_path, get_model_name
+from conv import get_best_interval, create_default_network, get_model_parameters_path, get_model_name, \
+    get_dataset_types_mm9
 
 from data import convert_to_binary_layered
 
@@ -25,7 +26,7 @@ def predict_tracks_conv():
     interval = get_best_interval()
     batch_size = 1000
     network = create_default_network(batch_size)
-    for data_name in get_dataset_types():
+    for data_name in get_dataset_types_mm9():
         for i in range(3):
             model_name = get_model_name(data_name, i)
             with gzip.open(get_model_parameters_path(data_name, i), 'r') as f:

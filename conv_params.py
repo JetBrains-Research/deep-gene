@@ -30,7 +30,7 @@ def compare_different_models():
     theano.config.openmp = True
     f = open('result.txt', 'a')
 
-    data_set = [divide_data("genes-coding", i) for i in range(0, 3)]
+    data_set = [divide_data("mm9_genes_coding", i) for i in range(0, 3)]
 
     for (k3) in [60, 80, 100]:
         parameters = get_default_parameters()

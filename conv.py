@@ -11,7 +11,7 @@ import time
 from adam import adam
 from logistic import LogisticRegression
 from theano_util import LeNetConvPoolLayer, HiddenLayer, add_dropout, relu
-from data import divide_data, convert_to_binary_layered, shared_dataset, unzip, human_time
+from data import divide_data, shared_dataset, unzip, human_time, convert_to_number
 
 
 def prepare_data(data, interval):
@@ -21,7 +21,7 @@ def prepare_data(data, interval):
     def prepossess(d):
         binary_data = []
         for (s, t) in d:
-            binary_data.append((convert_to_binary_layered(s[left:right]), t))
+            binary_data.append((convert_to_number(s[left:right]), t))
         return shared_dataset(unzip(binary_data))
 
     return prepossess(train), prepossess(valid), prepossess(test)
@@ -73,7 +73,13 @@ class ConvolutionPart2(object):
         dropout0 = parameters["dropout0"]
         dropout1 = parameters["dropout1"]
 
-        conv1_input = add_dropout(x.reshape((batch_size, 4, sequence_size, 1)), is_train, 1 - dropout0, rng)
+        l_a = T.eq(x, 0).reshape((batch_size, sequence_size, 1))
+        l_t = T.eq(x, 1).reshape((batch_size, sequence_size, 1))
+        l_g = T.eq(x, 2).reshape((batch_size, sequence_size, 1))
+        l_c = T.eq(x, 3).reshape((batch_size, sequence_size, 1))
+
+        stacked = T.cast(T.stack([l_a, l_t, l_g, l_c], axis=1), theano.config.floatX)
+        conv1_input = add_dropout(stacked, is_train, 1 - dropout0, rng)
 
         conv_1 = LeNetConvPoolLayer(
             rng,
@@ -166,7 +172,7 @@ class Network(object):
         dropout5 = parameters["dropout5"]
 
         index = T.lscalar()  # index to a [mini]batch
-        x = T.tensor4('x')  # the data is bunch of 3D patterns
+        x = T.matrix('x', dtype='int8')  # the data is bunch of 3D patterns
         is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
         self.sequence_size = sequence_size
@@ -287,7 +293,7 @@ class Fitter():
         self.n_validation_batches = validation_set_x.get_value(borrow=True).shape[0] // batch_size
 
         x = network.x
-        y = T.ivector('y')  # the labels are presented as 1D vector of
+        y = T.bvector('y')  # the labels are presented as 1D vector of
 
         index = network.index
         is_train = network.is_train
@@ -434,7 +440,7 @@ def get_model_parameters_path(dataset_name, index):
 
 def train_model(data, dataset_name, index):
     training, validation, test = data
-    batch_size = 500
+    batch_size = 1000
     network = create_default_network(batch_size)
     fitter = Fitter(network,
                     training,
@@ -477,9 +483,14 @@ def get_default_parameters():
     }
 
 
+def get_dataset_types_mm9():
+    return ["mm9_genes_coding", "mm9_genes_all", "mm9_cage_near_coding", "mm9_cage_all"]
+
+def get_dataset_types_hg19():
+    return ["hg19_genes_coding", "hg19_genes_all", "hg19_cage_near_coding", "hg19_cage_all"]
+
 def get_dataset_types():
-    return ["mm9_genes_coding", "mm9_genes_all", "mm9_cage_near_coding", "mm9_cage_all",
-            "hg19_genes_coding", "hg19_genes_all", "hg19_cage_near_coding", "hg19_cage_all"]
+    return get_dataset_types_mm9() + get_dataset_types_hg19()
 
 
 def main():
