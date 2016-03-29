@@ -1,3 +1,4 @@
+import os
 import sys
 import gzip
 import cPickle
@@ -487,6 +488,10 @@ def main():
 
     for data_name in get_dataset_types():
         for i in xrange(3):
+            path = get_model_parameters_path(data_name, i)
+            if os.path.exists(path):
+                print "Model {} exists.".format(path)
+                continue
             data_set = divide_data(data_name, i)
             data = prepare_data(data_set, interval=(left, right))
 
