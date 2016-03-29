@@ -1,4 +1,6 @@
 import os
+import shutil
+import numpy
 import theano
 import gzip
 import cPickle
@@ -15,15 +17,21 @@ def main():
 
     batch_size = 1000
 
+    if not os.path.exists('evaluation'):
+        os.mkdir('evaluation')
+
+    result_file = open("evaluation/results.txt", 'w')
+
     for data_name in get_dataset_types():
-        for i in xrange(3):
-            model_path = get_model_parameters_path(data_name, i)
+        for k in xrange(3):
+            model_path = get_model_parameters_path(data_name, k)
+            result_file.write(model_path + "\n")
             if not os.path.exists(model_path):
                 continue
 
             print(model_path)
 
-            training, validation, test = prepare_data(divide_data(data_name, i), interval=(left, right))
+            training, validation, test = prepare_data(divide_data(data_name, k), interval=(left, right))
 
             model = create_default_network(batch_size)
 
@@ -35,6 +43,14 @@ def main():
             test_x = test_x.get_value()
             test_y = test_y.get_value()
             probabilities = []
+
+            sum_errors = 0.0
+            n_errors = 0
+
+            for i in xrange(0, test_x.shape[0] - batch_size + 1, batch_size):
+                y = model.predict(test_x[i: i + batch_size])
+                sum_errors += numpy.mean(numpy.not_equal(y, test_y[i: i + batch_size]).astype(float))
+                n_errors += 1
 
             for i in xrange(0, test_x.shape[0] - batch_size + 1, batch_size):
                 p = model.prob(test_x[i: i + batch_size])[:, 1]
@@ -76,21 +92,24 @@ def main():
                 precisions.append(precision)
                 # print table, precision, recall, tpr, fpr
 
-            areaROC = 0.0
+            plt.plot(fprs, tprs)
+            plt.savefig("evaluation/roc_{}_{}.png".format(data_name, k))
+
+            with open("evaluation/table_{}_{}.csv".format(data_name, k), 'w') as f:
+                for tpr, fpr in zip(tprs, fprs):
+                    f.write("{}\t{}\n".format(tpr, fpr))
+
+            area_roc = 0.0
             for i in xrange(1, len((fprs))):
                 dx = - fprs[i] + fprs[i - 1]
                 y = (tprs[i] + tprs[i - 1]) / 2.0
-                areaROC += dx * y
+                area_roc += dx * y
 
-            print("Area under ROC: {}".format(areaROC))
+            result_file.write("mean error: {}\n".format(sum_errors / n_errors))
+            result_file.write("area under ROC: {}\n".format(area_roc))
+            result_file.write("\n")
 
-            areaPRC = 0.0
-            for i in xrange(1, len((recalls))):
-                dx = - recalls[i] + recalls[i - 1]
-                y = (precisions[i] + precisions[i - 1]) / 2.0
-                areaPRC += dx * y
-
-            print("Area under PRC: {}".format(areaPRC))
+    result_file.close()
 
 if __name__ == '__main__':
     main()
