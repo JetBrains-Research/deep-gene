@@ -433,7 +433,7 @@ def get_model_parameters_path(dataset_name, index):
 
 def train_model(data, dataset_name, index):
     training, validation, test = data
-    batch_size = 1000
+    batch_size = 500
     network = create_default_network(batch_size)
     fitter = Fitter(network,
                     training,
