@@ -66,7 +66,6 @@ def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
             nmers = []
 
         if len(used_nmers) > 2000000:
-            write_paterns(best, n_kernels, prefix)
             used_nmers = set()
             print("Clean cache")
 
@@ -151,7 +150,7 @@ def inspect_pattern2(model_path):
 
 def do_it():
     default_parameters = get_default_parameters()
-    model_path = get_model_parameters_path("genes-coding", 0)
+    model_path = get_model_parameters_path("mm9_genes_coding", 0)
 
     kernel3 = default_parameters["n_kernels3"]
 
