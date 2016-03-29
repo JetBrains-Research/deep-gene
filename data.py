@@ -55,7 +55,15 @@ def divide_data(name, index):
 
         with open("data/{}.txt".format(name)) as f:
             pos = [line.split("\t") for line in f.readlines()]
-        with open("data/negative.txt") as f:
+
+        if name.startswith("mm9"):
+            negative = "mm9_negative.txt"
+        elif name.startswith("hg19"):
+            negative = "hg19_negative.txt"
+        else:
+            raise Exception("Strange name: " + name)
+
+        with open("data/" + negative) as f:
             neg = [line.split("\t") for line in f.readlines()]
 
         pos_size = sum_size(pos)
