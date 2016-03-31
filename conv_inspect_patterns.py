@@ -1,12 +1,14 @@
 import gzip
 import cPickle
 import itertools
+import os
 import subprocess
 import theano
 import theano.tensor as T
 
 import numpy
-from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2
+from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2, \
+    get_dataset_types
 import matplotlib.pyplot as plt
 
 from data import divide_data, unzip, convert_to_number
@@ -25,9 +27,9 @@ def get_nmers_iterator(n):
                            cut_to_nmers(unzip(test)[0], n))
 
 
-def write_paterns(best, n_kernels, prefix):
+def write_paterns(path, best, n_kernels, prefix):
     for i in xrange(n_kernels):
-        base_name = 'patterns/{}_pattern_{}'.format(prefix, i)
+        base_name = path + '/{}_pattern_{}'.format(prefix, i)
         with open(base_name + '.txt', 'w') as f:
             f.write("Pattern {} best\n".format(i))
             for score, seq in best[i]:
@@ -45,7 +47,7 @@ def write_paterns(best, n_kernels, prefix):
                          "-o", base_name + ".png"])
 
 
-def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
+def inspect_patterns(prefix, batch_size, n_kernels, n, predict, path):
     best = [[] for _ in xrange(n_kernels)]
     used_nmers = set()
     nmers = []
@@ -69,10 +71,10 @@ def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
             used_nmers = set()
             print("Clean cache")
 
-    write_paterns(best, n_kernels, prefix)
+    write_paterns(path, best, n_kernels, prefix)
 
 
-def inspect_pattern3(model_path):
+def inspect_pattern3(model_path, path):
     n = 37
 
     default_parameters = get_default_parameters()
@@ -107,10 +109,10 @@ def inspect_pattern3(model_path):
         }
     )
 
-    inspect_patterns("conv3", batch_size, kernel3, n, predict)
+    inspect_patterns("conv3", batch_size, kernel3, n, predict, path)
 
 
-def inspect_pattern2(model_path):
+def inspect_pattern2(model_path, path):
     n = 15
 
     default_parameters = get_default_parameters()
@@ -145,30 +147,31 @@ def inspect_pattern2(model_path):
         }
     )
 
-    inspect_patterns("conv2", batch_size, kernel2, n, predict)
+    inspect_patterns("conv2", batch_size, kernel2, n, predict, path)
 
 
-def do_it():
+def get_patterns(data_set):
+    path = "patterns/" + data_set
+    os.mkdir(path)
     default_parameters = get_default_parameters()
-    model_path = get_model_parameters_path("mm9_genes_coding", 0)
-
+    model_path = get_model_parameters_path(data_set, 0)
     kernel3 = default_parameters["n_kernels3"]
-
     with gzip.open(model_path, 'r') as f:
         loaded_state = cPickle.load(f)
         mr_layer = loaded_state["mr_layer"]
-
-
     w = mr_layer["W"]
-
     for i in xrange(kernel3):
         x = numpy.arange(0, w.shape[1])
         plt.plot(x, w[i, :], color="b")
-        plt.savefig('patterns/plot_{}.png'.format(i))
+        plt.savefig(path + '/plot_{}.png'.format(i))
         plt.close()
+    inspect_pattern2(model_path, path)
+    inspect_pattern3(model_path, path)
 
-    inspect_pattern2(model_path)
-    inspect_pattern3(model_path)
+
+def do_it():
+    for data_set in get_dataset_types():
+        get_patterns(data_set)
 
 
 if __name__ == '__main__':
