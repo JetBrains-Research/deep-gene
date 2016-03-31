@@ -16,7 +16,7 @@ def prepare_genome(interval):
         genome = "".join(map(lambda t: t[:-1], f.readlines()[1:]))
         genome = genome.lower()
 
-    for center in xrange(2000, len(genome) - 2000, 20):
+    for center in xrange(2000, len(genome) - 2000, 1):
         part = genome[center + left - 2000: center + right - 2000]
         if "n" not in part:
             yield part, center
@@ -34,7 +34,7 @@ def predict_tracks_conv():
                 network.load_state(loaded_state)
 
             f = open("tracks/conv_predictions_{}.wig".format(model_name), 'w')
-            f.write("variableStep chrom=chr1 span=20\n")
+            f.write("variableStep chrom=chr1 span=1\n")
             parts = []
             offsets = []
 
@@ -46,7 +46,7 @@ def predict_tracks_conv():
                     data_x = numpy.asarray(parts, dtype="int8")
                     results = network.prob(data_x)
                     for i in xrange(0, batch_size):
-                        f.write(str(offsets[i] - 10) + " " + str(results[i, 1]) + "\n")
+                        f.write(str(offsets[i]) + " " + str(results[i, 1]) + "\n")
 
                     parts = []
                     offsets = []
