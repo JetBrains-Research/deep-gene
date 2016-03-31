@@ -6,7 +6,7 @@ import theano
 from conv import get_best_interval, create_default_network, get_model_parameters_path, get_model_name, \
     get_dataset_types_mm9
 
-from data import convert_to_binary_layered
+from data import convert_to_number
 
 
 def prepare_genome(interval):
@@ -39,11 +39,11 @@ def predict_tracks_conv():
             offsets = []
 
             for (part, offset) in prepare_genome(interval):
-                binary = convert_to_binary_layered(part)
+                binary = convert_to_number(part)
                 parts.append(binary)
                 offsets.append(offset)
                 if len(parts) == batch_size:
-                    data_x = numpy.asarray(parts, dtype=theano.config.floatX)
+                    data_x = numpy.asarray(parts, dtype="int8")
                     results = network.prob(data_x)
                     for i in xrange(0, batch_size):
                         f.write(str(offsets[i] - 10) + " " + str(results[i, 1]) + "\n")

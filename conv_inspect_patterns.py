@@ -9,7 +9,7 @@ import numpy
 from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2
 import matplotlib.pyplot as plt
 
-from data import convert_to_binary_layered, divide_data, unzip
+from data import divide_data, unzip, convert_to_number
 
 
 def cut_to_nmers(seqs, k):
@@ -19,7 +19,7 @@ def cut_to_nmers(seqs, k):
 
 
 def get_nmers_iterator(n):
-    train, valid, test = divide_data("genes-coding", 0)
+    train, valid, test = divide_data("mm9_genes_coding", 0)
     return itertools.chain(cut_to_nmers(unzip(train)[0], n),
                            cut_to_nmers(unzip(valid)[0], n),
                            cut_to_nmers(unzip(test)[0], n))
@@ -56,7 +56,7 @@ def inspect_patterns(prefix, batch_size, n_kernels, n, predict):
         nmers.append(nmer)
         used_nmers.add(nmer)
         if len(nmers) == batch_size:
-            results = predict([convert_to_binary_layered(s) for s in nmers])
+            results = predict([convert_to_number(s) for s in nmers])
 
             for i in xrange(n_kernels):
                 t = results[:, i, 0, 0]
@@ -83,7 +83,7 @@ def inspect_pattern3(model_path):
 
     rng = numpy.random.RandomState(23455)
 
-    x = T.tensor4('x')  # the data is bunch of 3D patterns
+    x = T.matrix('x', dtype='int8')
     is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
     convolution = ConvolutionPart3(
@@ -121,7 +121,7 @@ def inspect_pattern2(model_path):
 
     rng = numpy.random.RandomState(23455)
 
-    x = T.tensor4('x')  # the data is bunch of 3D patterns
+    x = T.matrix('x', dtype='int8')
     is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
     convolution = ConvolutionPart2(

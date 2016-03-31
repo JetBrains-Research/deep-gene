@@ -1,5 +1,4 @@
 import os
-import shutil
 import numpy
 import theano
 import gzip
@@ -9,6 +8,17 @@ from conv import get_best_interval, prepare_data, create_default_network, get_mo
 from data import divide_data
 
 import matplotlib.pyplot as plt
+
+
+def get_errors(batch_size, model, test_x, test_y):
+    sum_errors = 0.0
+    n_errors = 0
+    for i in xrange(0, test_x.shape[0] - batch_size + 1, batch_size):
+        y = model.predict(test_x[i: i + batch_size])
+        sum_errors += numpy.mean(numpy.not_equal(y, test_y[i: i + batch_size]).astype(float))
+        n_errors += 1
+    test_error = sum_errors / n_errors
+    return test_error
 
 
 def main():
@@ -39,18 +49,19 @@ def main():
                 loaded_state = cPickle.load(f)
                 model.load_state(loaded_state)
 
+            train_x, train_y = training
+            valid_x, valid_y = validation
             test_x, test_y = test
             test_x = test_x.get_value()
             test_y = test_y.get_value()
             probabilities = []
 
-            sum_errors = 0.0
-            n_errors = 0
-
-            for i in xrange(0, test_x.shape[0] - batch_size + 1, batch_size):
-                y = model.predict(test_x[i: i + batch_size])
-                sum_errors += numpy.mean(numpy.not_equal(y, test_y[i: i + batch_size]).astype(float))
-                n_errors += 1
+            train_error = get_errors(batch_size, model, train_x.get_value(), train_y.get_value())
+            result_file.write("train error: {}\n".format(train_error))
+            valid_error = get_errors(batch_size, model, valid_x.get_value(), valid_y.get_value())
+            result_file.write("valid error: {}\n".format(valid_error))
+            test_error = get_errors(batch_size, model, test_x, test_y)
+            result_file.write("test  error: {}\n".format(test_error))
 
             for i in xrange(0, test_x.shape[0] - batch_size + 1, batch_size):
                 p = model.prob(test_x[i: i + batch_size])[:, 1]
@@ -93,7 +104,6 @@ def main():
                 # print table, precision, recall, tpr, fpr
 
             plt.plot(fprs, tprs)
-            plt.savefig("evaluation/roc_{}_{}.png".format(data_name, k))
 
             with open("evaluation/table_{}_{}.csv".format(data_name, k), 'w') as f:
                 for tpr, fpr in zip(tprs, fprs):
@@ -105,9 +115,12 @@ def main():
                 y = (tprs[i] + tprs[i - 1]) / 2.0
                 area_roc += dx * y
 
-            result_file.write("mean error: {}\n".format(sum_errors / n_errors))
+
             result_file.write("area under ROC: {}\n".format(area_roc))
             result_file.write("\n")
+
+        plt.savefig("evaluation/roc_{}.png".format(data_name))
+        plt.clf()
 
     result_file.close()
 
