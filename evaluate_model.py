@@ -33,6 +33,9 @@ def main():
     result_file = open("evaluation/results.txt", 'w')
 
     for data_name in get_dataset_types():
+        plt.xlabel('False positive rate')
+        plt.ylabel('True positive rate')
+        plt.title(data_name)
         for k in xrange(3):
             model_path = get_model_parameters_path(data_name, k)
             result_file.write(model_path + "\n")
@@ -104,10 +107,6 @@ def main():
                 # print table, precision, recall, tpr, fpr
 
             plt.plot(fprs, tprs)
-
-            with open("evaluation/table_{}_{}.csv".format(data_name, k), 'w') as f:
-                for tpr, fpr in zip(tprs, fprs):
-                    f.write("{}\t{}\n".format(tpr, fpr))
 
             area_roc = 0.0
             for i in xrange(1, len((fprs))):
