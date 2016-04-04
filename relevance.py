@@ -13,9 +13,10 @@ class Relevance(object):
     def __init__(self,
                  network):
         x = network.x
+        conv_input = network.conv_input
         is_train = network.is_train
 
-        grads = T.grad(network.regression.p_y_given_x[0][1], x)
+        grads = T.grad(network.regression.p_y_given_x[0][1], conv_input)
 
         self.get_grad = theano.function(
             [x],
@@ -63,7 +64,7 @@ def main():
     batch_size = 1
     left, right = get_best_interval()
 
-    data_name, i = "genes-coding", 0
+    data_name, i = "mm9_genes_coding", 0
 
     data_set = divide_data(data_name, i)
 
@@ -79,11 +80,11 @@ def main():
 
     doc = dominate.document(title='Tss prediction report')
 
-    for i in range(1000):
+    for i in range(2000):
         x, y = data_set[0][i]
         prediction = network.prob(sequences[i:i + 1])[0][1]
 
-        if not (y == 1 and prediction < 0.4):
+        if not (y == 0 and prediction > 0.7):
             continue
 
         doc += div("gene: {}".format(y))

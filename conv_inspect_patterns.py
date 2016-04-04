@@ -8,7 +8,7 @@ import theano.tensor as T
 
 import numpy
 from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2, \
-    get_dataset_types
+    get_dataset_types, create_conv_input
 import matplotlib.pyplot as plt
 
 from data import divide_data, unzip, convert_to_number
@@ -88,12 +88,14 @@ def inspect_pattern3(model_path, path):
     x = T.matrix('x', dtype='int8')
     is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
+    conv_input = create_conv_input(x, batch_size, n)
+
     convolution = ConvolutionPart3(
         rng,
         default_parameters,
         batch_size,
         n,
-        x,
+        conv_input,
         is_train,
         inspect=True)
 
@@ -126,12 +128,14 @@ def inspect_pattern2(model_path, path):
     x = T.matrix('x', dtype='int8')
     is_train = T.iscalar('is_train')  # pseudo boolean for switching between training and prediction
 
+    conv_input = create_conv_input(x, batch_size, n)
+
     convolution = ConvolutionPart2(
         rng,
         default_parameters,
         batch_size,
         n,
-        x,
+        conv_input,
         is_train,
         inspect=True)
 

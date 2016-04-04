@@ -27,6 +27,13 @@ def prepare_data(data, interval):
     return prepossess(train), prepossess(valid), prepossess(test)
 
 
+def create_conv_input(x, batch_size, sequence_size):
+    l_a = T.eq(x, 0).reshape((batch_size, sequence_size, 1))
+    l_t = T.eq(x, 1).reshape((batch_size, sequence_size, 1))
+    l_g = T.eq(x, 2).reshape((batch_size, sequence_size, 1))
+    l_c = T.eq(x, 3).reshape((batch_size, sequence_size, 1))
+    return T.cast(T.stack([l_a, l_t, l_g, l_c], axis=1), theano.config.floatX)
+
 class MultiRegressionLayer(object):
     def __init__(self, rng, input, n_out, n_seq):
         W_values = numpy.asarray(
@@ -62,7 +69,7 @@ class ConvolutionPart2(object):
                  parameters,
                  batch_size,
                  sequence_size,
-                 x,
+                 conv_input,
                  is_train,
                  inspect=False):
 
@@ -70,20 +77,11 @@ class ConvolutionPart2(object):
         n_kernels2 = parameters["n_kernels2"]
         pattern1_size = parameters["pattern1_size"]
         pattern2_size = parameters["pattern2_size"]
-        dropout0 = parameters["dropout0"]
         dropout1 = parameters["dropout1"]
-
-        l_a = T.eq(x, 0).reshape((batch_size, sequence_size, 1))
-        l_t = T.eq(x, 1).reshape((batch_size, sequence_size, 1))
-        l_g = T.eq(x, 2).reshape((batch_size, sequence_size, 1))
-        l_c = T.eq(x, 3).reshape((batch_size, sequence_size, 1))
-
-        stacked = T.cast(T.stack([l_a, l_t, l_g, l_c], axis=1), theano.config.floatX)
-        conv1_input = add_dropout(stacked, is_train, 1 - dropout0, rng)
 
         conv_1 = LeNetConvPoolLayer(
             rng,
-            input=conv1_input,
+            input=conv_input,
             image_shape=(batch_size, 4, sequence_size, 1),
             filter_shape=(n_kernels1, 4, pattern1_size, 1),
             poolsize=(2, 1)
@@ -115,7 +113,7 @@ class ConvolutionPart3(object):
                  parameters,
                  batch_size,
                  sequence_size,
-                 x,
+                 conv_input,
                  is_train,
                  inspect=False):
 
@@ -129,7 +127,7 @@ class ConvolutionPart3(object):
             parameters,
             batch_size,
             sequence_size,
-            x,
+            conv_input,
             is_train)
 
         conv_1 = convolution_part.conv_1
@@ -167,6 +165,7 @@ class Network(object):
         sequence_size = parameters["right"] - parameters["left"]
         n_kernels3 = parameters["n_kernels3"]
         n_fully_connected = parameters["n_fully_connected"]
+        dropout0 = parameters["dropout0"]
         dropout3 = parameters["dropout3"]
         dropout4 = parameters["dropout4"]
         dropout5 = parameters["dropout5"]
@@ -184,13 +183,16 @@ class Network(object):
 
         # BUILD ACTUAL MODEL
         print '... building the model'
+        conv_input = add_dropout(create_conv_input(x, batch_size, sequence_size), is_train, 1 - dropout0, rng)
+
+        self.conv_input = conv_input
 
         convolution_part = ConvolutionPart3(
             rng,
             parameters,
             batch_size,
             sequence_size,
-            x,
+            conv_input,
             is_train)
 
         conv_1 = convolution_part.conv_1
