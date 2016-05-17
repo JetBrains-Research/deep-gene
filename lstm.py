@@ -175,7 +175,7 @@ def get_error(batch_size, lstm, data, sequence_len):
     data_x, data_y = data
     avg_error = 0
     n_batches = 0
-    for i in xrange(0, len(data_x), batch_size):
+    for i in xrange(0, len(data_x) - batch_size + 1, batch_size):
             block_x = [[] for _ in range(sequence_len)]
             for k in range(batch_size):
                 for j in range(sequence_len):
