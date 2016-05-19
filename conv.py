@@ -468,7 +468,7 @@ def get_default_parameters():
         "right": 2500,
         "n_kernels1": 30,
         "n_kernels2": 60,
-        "n_kernels3": 60,
+        "n_kernels3": 80,
         "n_fully_connected": 60,
         "pattern1_size": 4,
         "pattern2_size": 6,
