@@ -2,7 +2,7 @@ import numpy
 
 import theano
 import theano.tensor as T
-from theano.tensor.signal import downsample
+from theano.tensor.signal.pool import pool_2d
 from theano.tensor.nnet import conv
 
 def drop_cpu(input, p, rng):
@@ -188,7 +188,7 @@ class LeNetConvPoolLayer(object):
         )
 
         # downsample each feature map individually, using maxpooling
-        pooled_out = downsample.max_pool_2d(
+        pooled_out = pool_2d(
             input=conv_out,
             ds=poolsize,
             ignore_border=True
