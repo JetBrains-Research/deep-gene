@@ -1,22 +1,23 @@
 import random
 
+import lasagne
 import theano
 import numpy
 import theano.tensor as T
 from math import exp, log
 
-from adam import adam
 from conv import get_best_interval
-from data import unzip
-from theano_util import HiddenLayer
+from data import convert_to_number
 
 
-def shared_dataset(data_xy):
-    data_x, data_y = data_xy
-    shared_x = numpy.asarray(data_x, dtype=theano.config.floatX)
-    shared_y = numpy.asarray(data_y, dtype=theano.config.floatX)
+def shared_dataset(data_xsy):
+    data_x, data_s, data_y = data_xsy
+    shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
+    shared_s = theano.shared(numpy.asarray(data_s, dtype='int8'))
+    shared_y = theano.shared(numpy.asarray(data_y, dtype=theano.config.floatX))
 
-    return shared_x, shared_y
+    return shared_x, shared_s, shared_y
+
 
 def divide_data(interval):
     left, right = interval
@@ -42,10 +43,13 @@ def divide_data(interval):
 
             x.append([float(str) for str in split[3:]])
 
-    data = zip(x, y)
-    test = data[:1000]
-    valid = data[1000:2000]
-    train = data[2000:]
+    data = zip(x, sequences, y)
+
+    random.shuffle(data)
+
+    test = data[:5000]
+    valid = data[5000:10000]
+    train = data[10000:]
 
     return train, valid, test
 
@@ -53,111 +57,191 @@ def divide_data(interval):
 def prepare_data(data):
     train, valid, test = data
 
+    def unzip3(l):
+        return [[t[i] for t in l] for i in range(3)]
+
     def prepossess(d):
         binary_data = []
-        for (s, t) in d:
-            binary_data.append((s, t))
-        return shared_dataset(unzip(binary_data))
+        for (x, s, y) in d:
+            binary_data.append((x, convert_to_number(s), y))
+        return shared_dataset(unzip3(binary_data))
 
     return prepossess(train), prepossess(valid), prepossess(test)
 
 
-class Network(object):
-    def __init__(self, rng):
+class ChipSeqNetwork(object):
+    def __init__(self, x, s):
+        input = lasagne.layers.InputLayer(shape=(None, 80), input_var=x)
+        input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
+        layer1 = lasagne.layers.DenseLayer(input_drop, 100, nonlinearity=T.tanh)
+        self.output = layer1
+
+
+def create_conv_input(x, batch_size, sequence_size):
+    l_a = T.eq(x, 0).reshape((batch_size, sequence_size))
+    l_t = T.eq(x, 1).reshape((batch_size, sequence_size))
+    l_g = T.eq(x, 2).reshape((batch_size, sequence_size))
+    l_c = T.eq(x, 3).reshape((batch_size, sequence_size))
+    return T.cast(T.stack([l_a, l_t, l_g, l_c], axis=1), theano.config.floatX)
+
+
+class SequenceNetwork(object):
+    def __init__(self, x, s, batch_size, sequence_size):
+        conv_input = create_conv_input(s, batch_size, sequence_size)
+
+        input = lasagne.layers.InputLayer(shape=(None, 4, sequence_size), input_var=conv_input)
+
+        input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
+
+        conv1 = lasagne.layers.Conv1DLayer(input_drop, num_filters=20, filter_size=4,
+              nonlinearity=lasagne.nonlinearities.leaky_rectify)
+
+        conv1_pool = lasagne.layers.MaxPool1DLayer(conv1, 2)
+
+        conv1_drop = lasagne.layers.DropoutLayer(conv1_pool, p=0.2)
+
+        conv2 = lasagne.layers.Conv1DLayer(conv1_drop, num_filters=40, filter_size=6,
+                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
+
+        conv2_pool = lasagne.layers.MaxPool1DLayer(conv2, 2)
+
+        conv2_drop = lasagne.layers.DropoutLayer(conv2_pool, p=0.2)
+
+        dence_layer = lasagne.layers.DenseLayer(conv2_drop, 100, nonlinearity=None)
+
+        self.output = dence_layer
+
+
+class Fitter(object):
+    def __init__(self,
+                 training,
+                 validation,
+                 test,
+                 batch_size):
+
+        self.batch_size = batch_size
+        train_set_x, train_set_s, train_set_y = training
+        validation_set_x, validation_set_s, validation_set_y = validation
+        test_set_x, test_set_s, test_set_y = test
+
         x = T.matrix('x')
+        s = T.matrix('s', dtype='int8')    # the data is bunch of sequences
         y = T.vector("y")
 
-        layer0 = HiddenLayer(
-            rng,
-            x,
-            80,
-            100)
+        self.x = x
+        self.s = s
+        self.y = y
 
-        layer1 = HiddenLayer(
-            rng,
-            layer0.output,
-            100,
-            100)
+        index = T.lscalar()                # index to a [mini]batch
 
-        layer2 = HiddenLayer(
-            rng,
-            layer1.output,
-            100,
-            100,
-            activation=None)
+        seq_network = SequenceNetwork(x, s, batch_size, 1500)
 
-        layer3 = HiddenLayer(
-            rng,
-            layer2.output,
-            100,
-            1,
-            activation=None)
+        vars_set = {s, y}
 
-        output = layer3.output.flatten()
-        err = T.mean((output - y) ** 2)
+        network_output = lasagne.layers.NonlinearityLayer(seq_network.output,
+                                                          nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
-        L2 = ((layer0.W ** 2).sum() +
-              (layer1.W ** 2).sum() +
-              (layer3.W ** 2).sum())
+        layer2 = lasagne.layers.DenseLayer(network_output, 100, nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
-        self.layer0 = layer0
-        self.layer1 = layer1
-        self.layer2 = layer3
-        self.layer3 = layer3
+        layer2_drop = lasagne.layers.DropoutLayer(layer2, p=0.5)
 
-        params = (layer0.params +
-                  layer1.params +
-                  layer3.params)
+        regression = lasagne.layers.DenseLayer(layer2_drop, 1, nonlinearity=None)
 
-        cost = err + L2 * 0.00001
-        updates = adam(cost, params, lr=0.001)
+        output = lasagne.layers.get_output(regression).flatten()
+
+        err = T.mean(lasagne.objectives.squared_error(output, y))
+
+        l1_penalty = lasagne.regularization.regularize_layer_params(regression, lasagne.regularization.l1)
+        l2_penalty = lasagne.regularization.regularize_layer_params(regression, lasagne.regularization.l2)
+
+        cost = err + l1_penalty * 1e-4 + l2_penalty * 1e-4
+
+        params = lasagne.layers.get_all_params(regression, trainable=True)
+
+        updates = lasagne.updates.adam(cost, params, learning_rate=0.01)
 
         self.train_model = theano.function(
-            inputs=[x, y],
+            inputs=[index],
             outputs=cost,
             updates=updates,
+            givens=self.prepare_given(index, vars_set, train_set_x, train_set_s, train_set_y)
         )
 
-        self.get_err = theano.function(
-            inputs=[x, y],
+        output_deterministic = lasagne.layers.get_output(regression, deterministic=True).flatten()
+
+        err = T.mean(lasagne.objectives.squared_error(output_deterministic, y))
+
+        self.get_validation_error = theano.function(
+            inputs=[index],
             outputs=err,
+            givens=self.prepare_given(index, vars_set, validation_set_x, validation_set_s, validation_set_y)
         )
 
-        self.pedict = theano.function(
-            inputs=[x],
-            outputs=output,
+        self.get_test_error = theano.function(
+            inputs=[index],
+            outputs=err,
+            givens=self.prepare_given(index, vars_set, test_set_x, test_set_s, test_set_y)
         )
+
+    def prepare_given(self, index, vars_set, set_x, set_s, set_y):
+        result = {}
+
+        if self.x in vars_set:
+            result[self.x] = set_x[index * self.batch_size:(index + 1) * self.batch_size]
+
+        if self.s in vars_set:
+            result[self.s] = set_s[index * self.batch_size:(index + 1) * self.batch_size]
+
+        if self.y in vars_set:
+            result[self.y] = set_y[index * self.batch_size:(index + 1) * self.batch_size]
+
+        return result
+
+
+def get_validation_error(network):
+    valid_err = 0.0
+    for i in range(5):
+        valid_err += network.get_validation_error(i) / 5
+    return valid_err
+
+
+def get_test_error(network):
+    test_err = 0.0
+    for i in range(5):
+        test_err += network.get_test_error(i) / 5
+    return test_err
 
 
 def main():
     theano.config.openmp = True
-    # theano.config.optimizer = "None"
+    #theano.config.optimizer = "None"
 
-    errors = [get_error() for i in range(5)]
+    errors = [get_error_from_seq() for i in range(5)]
     print errors
 
 
-def get_error():
-    train, valid, test = prepare_data(divide_data(get_best_interval()))
-    train_x, train_y = train
+def get_error_from_seq():
+    train, validation, test = prepare_data(divide_data(get_best_interval()))
+    train_x, train_s, train_y = train
     batch_size = 1000
-    batches_number = train_x.shape[0] // batch_size
-    rng = numpy.random.RandomState(23455)
-    network = Network(rng)
+    train_batches_number = train_x.get_value().shape[0] // batch_size
+
+    network = Fitter(train, validation, test, batch_size)
     best_error = 1000
     result_error = 0
     for epoch in range(1000):
         err = 0.0
-        for i in range(batches_number):
-            err += network.train_model(train_x[i * batch_size:(i + 1) * batch_size, ],
-                                       train_y[i * batch_size:(i + 1) * batch_size, ])
-        valid_err = network.get_err(valid[0], valid[1])
-        test_err = network.get_err(test[0], test[1])
+        for i in range(train_batches_number):
+            err += network.train_model(i)
+
+        valid_err = get_validation_error(network)
+
+        print("{:3} total error: {}".format(epoch, err / train_batches_number))
 
         if valid_err < best_error:
             best_error = valid_err
+            test_err = get_test_error(network)
             result_error = test_err
-            print("{:3} total error: {}".format(epoch, err / batches_number))
             print("      valid_err: {}".format(valid_err))
             print("       test_err: {}".format(test_err))
 
