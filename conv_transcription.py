@@ -20,7 +20,8 @@ def shared_dataset(data_xsy):
     return shared_x, shared_s, shared_y
 
 
-def divide_data(interval):
+def divide_data(interval,
+                mask=None):
     left, right = interval
 
     with open("transcription/tss.fast") as f:
@@ -42,7 +43,11 @@ def divide_data(interval):
 
             y.append(log(tpm + exp(-10)))
 
-            x.append([float(str) for str in split[3:]])
+            x_row = [float(str) for str in split[3:]]
+            if mask is not None:
+                x_row = [a * b for a, b in zip(x_row, mask)]
+
+            x.append(x_row)
 
     print("Size of x:{}".format(len(x[0])))
 
@@ -97,7 +102,7 @@ class SequenceNetwork(object):
         input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
 
         conv1 = lasagne.layers.Conv1DLayer(input_drop, num_filters=20, filter_size=4,
-              nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
         conv1_pool = lasagne.layers.MaxPool1DLayer(conv1, 2)
 
@@ -139,14 +144,14 @@ class Fitter(object):
         test_set_x, test_set_s, test_set_y = test
 
         x = T.matrix('x')
-        s = T.matrix('s', dtype='int8')    # the data is bunch of sequences
+        s = T.matrix('s', dtype='int8')  # the data is bunch of sequences
         y = T.vector("y")
 
         self.x = x
         self.s = s
         self.y = y
 
-        index = T.lscalar()                # index to a [mini]batch
+        index = T.lscalar()  # index to a [mini]batch
 
         if network_type == "chip-seq":
             chip_network = ChipSeqNetwork(x, s)
@@ -236,8 +241,8 @@ def get_test_error(network):
     return test_err
 
 
-def get_error_from_seq(network_type):
-    train, validation, test = prepare_data(divide_data(get_best_interval()))
+def get_error_from_seq(network_type, data):
+    train, validation, test = data
     train_x, train_s, train_y = train
     batch_size = 1000
     train_batches_number = train_x.get_value().shape[0] // batch_size
@@ -272,17 +277,16 @@ def get_error_from_seq(network_type):
 
 def main():
     theano.config.openmp = True
-    #theano.config.optimizer = "None"
+    # theano.config.optimizer = "None"
 
     results = {}
 
     for network_type in ["chip-seq", "sequence", "combined"]:
-        results[network_type] = [get_error_from_seq(network_type) for i in range(5)]
+        data = prepare_data(divide_data(get_best_interval(), mask=None))
+        results[network_type] = [get_error_from_seq(network_type, data) for i in range(5)]
 
     print results
 
 
 if __name__ == '__main__':
     main()
-
-
