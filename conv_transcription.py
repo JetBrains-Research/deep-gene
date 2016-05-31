@@ -8,6 +8,7 @@ from math import exp, log
 
 from conv import get_best_interval
 from data import convert_to_number
+from multi_regression_layer import MultiRegressionLayer
 
 
 def shared_dataset(data_xsy):
@@ -43,6 +44,8 @@ def divide_data(interval):
 
             x.append([float(str) for str in split[3:]])
 
+    print("Size of x:{}".format(len(x[0])))
+
     data = zip(x, sequences, y)
 
     random.shuffle(data)
@@ -71,7 +74,7 @@ def prepare_data(data):
 
 class ChipSeqNetwork(object):
     def __init__(self, x, s):
-        input = lasagne.layers.InputLayer(shape=(None, 80), input_var=x)
+        input = lasagne.layers.InputLayer(shape=(None, 176), input_var=x)
         input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
         layer1 = lasagne.layers.DenseLayer(input_drop, 100, nonlinearity=T.tanh)
         self.output = layer1
@@ -107,7 +110,17 @@ class SequenceNetwork(object):
 
         conv2_drop = lasagne.layers.DropoutLayer(conv2_pool, p=0.2)
 
-        dence_layer = lasagne.layers.DenseLayer(conv2_drop, 100, nonlinearity=None)
+        conv3 = lasagne.layers.Conv1DLayer(conv2_drop, num_filters=60, filter_size=6,
+                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
+
+        conv3_pool = lasagne.layers.MaxPool1DLayer(conv3, 2)
+
+        conv3_drop = lasagne.layers.DropoutLayer(conv3_pool, p=0.2)
+
+        multi_regression_layer = MultiRegressionLayer(conv3_drop,
+                                                      nonlinearity=lasagne.nonlinearities.leaky_rectify)
+
+        dence_layer = lasagne.layers.DenseLayer(multi_regression_layer, 100, nonlinearity=None)
 
         self.output = dence_layer
 
@@ -117,7 +130,8 @@ class Fitter(object):
                  training,
                  validation,
                  test,
-                 batch_size):
+                 batch_size,
+                 network_type):
 
         self.batch_size = batch_size
         train_set_x, train_set_s, train_set_y = training
@@ -134,11 +148,21 @@ class Fitter(object):
 
         index = T.lscalar()                # index to a [mini]batch
 
-        seq_network = SequenceNetwork(x, s, batch_size, 1500)
+        if network_type == "chip-seq":
+            chip_network = ChipSeqNetwork(x, s)
+            vars_set = {x, y}
+            output = chip_network.output
+        elif network_type == "sequence":
+            seq_network = SequenceNetwork(x, s, batch_size, 1500)
+            vars_set = {s, y}
+            output = seq_network.output
+        elif network_type == "combined":
+            chip_network = ChipSeqNetwork(x, s)
+            seq_network = SequenceNetwork(x, s, batch_size, 1500)
+            output = lasagne.layers.ElemwiseSumLayer([chip_network.output, seq_network.output])
+            vars_set = {x, s, y}
 
-        vars_set = {s, y}
-
-        network_output = lasagne.layers.NonlinearityLayer(seq_network.output,
+        network_output = lasagne.layers.NonlinearityLayer(output,
                                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
         layer2 = lasagne.layers.DenseLayer(network_output, 100, nonlinearity=lasagne.nonlinearities.leaky_rectify)
@@ -212,22 +236,15 @@ def get_test_error(network):
     return test_err
 
 
-def main():
-    theano.config.openmp = True
-    #theano.config.optimizer = "None"
-
-    errors = [get_error_from_seq() for i in range(5)]
-    print errors
-
-
-def get_error_from_seq():
+def get_error_from_seq(network_type):
     train, validation, test = prepare_data(divide_data(get_best_interval()))
     train_x, train_s, train_y = train
     batch_size = 1000
     train_batches_number = train_x.get_value().shape[0] // batch_size
 
-    network = Fitter(train, validation, test, batch_size)
+    network = Fitter(train, validation, test, batch_size, network_type)
     best_error = 1000
+    patience = 100
     result_error = 0
     for epoch in range(1000):
         err = 0.0
@@ -236,7 +253,7 @@ def get_error_from_seq():
 
         valid_err = get_validation_error(network)
 
-        print("{:3} total error: {}".format(epoch, err / train_batches_number))
+        print("{:3} total error: {} patience: {}".format(epoch, err / train_batches_number, patience))
 
         if valid_err < best_error:
             best_error = valid_err
@@ -244,10 +261,28 @@ def get_error_from_seq():
             result_error = test_err
             print("      valid_err: {}".format(valid_err))
             print("       test_err: {}".format(test_err))
+            patience = 100
+        else:
+            patience -= 1
+            if patience == 0: break
 
     print result_error
     return result_error
 
 
+def main():
+    theano.config.openmp = True
+    #theano.config.optimizer = "None"
+
+    results = {}
+
+    for network_type in ["chip-seq", "sequence", "combined"]:
+        results[network_type] = [get_error_from_seq(network_type) for i in range(5)]
+
+    print results
+
+
 if __name__ == '__main__':
     main()
+
+

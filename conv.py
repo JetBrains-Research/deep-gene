@@ -34,7 +34,7 @@ def create_conv_input(x, batch_size, sequence_size):
     l_c = T.eq(x, 3).reshape((batch_size, sequence_size, 1))
     return T.cast(T.stack([l_a, l_t, l_g, l_c], axis=1), theano.config.floatX)
 
-class MultiRegressionLayer(object):
+class MultiRegressionLayer_old(object):
     def __init__(self, rng, input, n_out, n_seq):
         W_values = numpy.asarray(
             rng.uniform(
@@ -206,7 +206,7 @@ class Network(object):
 
         conv_3_output = add_dropout(conv_3.output, is_train, 1 - dropout3, rng)
 
-        mr_layer = MultiRegressionLayer(rng, conv_3_output.flatten(3), n_kernels3, conv3_out_size)
+        mr_layer = MultiRegressionLayer_old(rng, conv_3_output.flatten(3), n_kernels3, conv3_out_size)
 
         fully_connected = HiddenLayer(
             rng,

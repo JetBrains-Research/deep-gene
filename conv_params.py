@@ -32,9 +32,9 @@ def compare_different_models():
 
     data_set = [divide_data("mm9_cage_near_coding", i) for i in range(0, 3)]
 
-    for (k3) in [60, 80, 100]:
+    for k1 in [20, 30, 40]:
         parameters = get_default_parameters()
-        parameters["n_kernels3"] = k3
+        parameters["n_kernels1"] = k1
 
         print(parameters)
         left = parameters["left"]
