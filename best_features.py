@@ -5,6 +5,7 @@ from conv_transcription import prepare_data, divide_data, get_error_from_seq
 
 
 def update_mask(base_mask):
+    errors = []
     best_error = float("inf")
     best_mask = None
     for j in range(176):
@@ -18,8 +19,15 @@ def update_mask(base_mask):
         error = 0
 
         for i in range(5):
+            print "start: {}".format(i)
             data = prepare_data(divide_data(get_best_interval(), mask=mask))
             error += get_error_from_seq("chip-seq", data) / 5
+
+        print "mask"
+        print mask
+        print "error: {}".format(error)
+        errors.append(error)
+        print "errors: {}".format(errors)
 
         if error < best_error:
             best_error = error
