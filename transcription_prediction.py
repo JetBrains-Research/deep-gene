@@ -5,9 +5,10 @@ import theano
 import numpy
 import theano.tensor as T
 from math import exp, log
+import time
 
 from conv import get_best_interval
-from data import convert_to_number
+from data import convert_to_number, human_time
 from multi_regression_layer import MultiRegressionLayer
 
 
@@ -279,13 +280,20 @@ def main():
     theano.config.openmp = True
     # theano.config.optimizer = "None"
 
-    results = {}
+    epoch_start = time.time()
+    data = prepare_data(divide_data(get_best_interval(), mask=None))
+    get_error_from_seq("combined", data)
+    epoch_end = time.time()
 
-    for network_type in ["chip-seq", "sequence", "combined"]:
-        data = prepare_data(divide_data(get_best_interval(), mask=None))
-        results[network_type] = [get_error_from_seq(network_type, data) for i in range(5)]
+    print "time:{}".format(human_time(epoch_end - epoch_start))
 
-    print results
+    #results = {}
+
+    #for network_type in ["chip-seq", "sequence", "combined"]:
+    #    data = prepare_data(divide_data(get_best_interval(), mask=None))
+    #    results[network_type] = [get_error_from_seq(network_type, data) for i in range(5)]
+
+    #print results
 
 
 if __name__ == '__main__':

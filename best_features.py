@@ -1,20 +1,21 @@
 import theano
 
 from conv import get_best_interval
-from conv_transcription import prepare_data, divide_data, get_error_from_seq
+from transcription_prediction import prepare_data, divide_data, get_error_from_seq
 
 
 def update_mask(base_mask):
     errors = []
     best_error = float("inf")
     best_mask = None
+
     for j in range(176):
-        if base_mask[j] == 0.0:
+        if base_mask[j] == 1.0:
             continue
 
         mask = list(base_mask)
 
-        mask[j] = 0.0
+        mask[j] = 1.0
 
         error = 0
 
@@ -39,8 +40,8 @@ def optimize_mask():
     masks = []
     errors = []
 
-    mask = [1.0] * 176
-    for i in range(150):
+    mask = [0.0] * 176
+    for i in range(50):
         mask, error = update_mask(mask)
         masks.append(list(mask))
         errors.append(error)
