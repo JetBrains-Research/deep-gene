@@ -80,7 +80,7 @@ def prepare_data(data):
 
 class ChipSeqNetwork(object):
     def __init__(self, x, s):
-        input = lasagne.layers.InputLayer(shape=(None, 176), input_var=x)
+        input = lasagne.layers.InputLayer(shape=(None, 88), input_var=x)
         input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
         layer1 = lasagne.layers.DenseLayer(input_drop, 100, nonlinearity=T.tanh)
         self.output = layer1
@@ -281,19 +281,17 @@ def main():
     # theano.config.optimizer = "None"
 
     epoch_start = time.time()
-    data = prepare_data(divide_data(get_best_interval(), mask=None))
-    get_error_from_seq("combined", data)
+    results = {}
+
+    for network_type in ["chip-seq", "sequence", "combined"]:
+        data = prepare_data(divide_data(get_best_interval(), mask=None))
+        results[network_type] = [get_error_from_seq(network_type, data) for i in range(5)]
+
     epoch_end = time.time()
 
     print "time:{}".format(human_time(epoch_end - epoch_start))
 
-    #results = {}
-
-    #for network_type in ["chip-seq", "sequence", "combined"]:
-    #    data = prepare_data(divide_data(get_best_interval(), mask=None))
-    #    results[network_type] = [get_error_from_seq(network_type, data) for i in range(5)]
-
-    #print results
+    print results
 
 
 if __name__ == '__main__':
