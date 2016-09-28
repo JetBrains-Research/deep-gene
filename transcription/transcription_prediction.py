@@ -8,8 +8,9 @@ from math import exp, log
 import time
 
 from conv import get_best_interval
-from data import convert_to_number, human_time
 from multi_regression_layer import MultiRegressionLayer
+from util.data import convert_to_number
+from util.data import human_time
 
 
 def shared_dataset(data_xsy):
