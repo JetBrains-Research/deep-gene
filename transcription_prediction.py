@@ -25,13 +25,13 @@ def divide_data(interval,
                 mask=None):
     left, right = interval
 
-    with open("transcription/tss.fast") as f:
+    with open("data/transcription/tss.fast") as f:
         sequences = [line[left:right] for line in f.readlines()]
 
     x = []
     y = []
 
-    with open("transcription/abundances.csv") as f:
+    with open("data/transcription/abundances.csv") as f:
         for line in f.readlines():
             if (line.startswith("#")):
                 continue
