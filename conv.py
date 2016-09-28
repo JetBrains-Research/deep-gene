@@ -8,10 +8,10 @@ import theano
 import theano.tensor as T
 import time
 
-from adam import adam
-from logistic import LogisticRegression
-from theano_util import LeNetConvPoolLayer, HiddenLayer, add_dropout, relu
-from data import divide_data, shared_dataset, unzip, human_time, convert_to_number
+from util.adam import adam
+from util.logistic import LogisticRegression
+from util.theano_util import LeNetConvPoolLayer, HiddenLayer, add_dropout, relu
+from util.data import divide_data, shared_dataset, unzip, human_time, convert_to_number
 
 
 def prepare_data(data, interval):
