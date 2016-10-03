@@ -5,7 +5,9 @@ import os
 import matplotlib.pyplot as plt
 import numpy
 import theano
-from conv import get_best_interval, prepare_data, create_default_network, get_model_parameters_path, get_dataset_types
+from tss.conv import prepare_data, get_model_parameters_path, get_dataset_types, \
+    get_default_parameters
+from tss.conv_model import TssPredictionNetwork
 
 from util.data import divide_data
 
@@ -23,9 +25,9 @@ def get_errors(batch_size, model, test_x, test_y):
 
 def main():
     theano.config.openmp = True
-    left, right = get_best_interval()
 
     batch_size = 1000
+    parameters = get_default_parameters()
 
     if not os.path.exists('evaluation'):
         os.mkdir('evaluation')
@@ -44,9 +46,10 @@ def main():
 
             print(model_path)
 
-            training, validation, test = prepare_data(divide_data(data_name, k), left, right)
+            divided = divide_data(data_name, k)
+            training, validation, test = prepare_data(divided, parameters)
 
-            model = create_default_network(batch_size)
+            model = TssPredictionNetwork(batch_size, parameters)
 
             with gzip.open(model_path, 'r') as f:
                 loaded_state = cPickle.load(f)
@@ -114,7 +117,6 @@ def main():
                 y = (tprs[i] + tprs[i - 1]) / 2.0
                 area_roc += dx * y
 
-
             result_file.write("area under ROC: {}\n".format(area_roc))
             result_file.write("\n")
 
@@ -122,6 +124,7 @@ def main():
         plt.clf()
 
     result_file.close()
+
 
 if __name__ == '__main__':
     main()

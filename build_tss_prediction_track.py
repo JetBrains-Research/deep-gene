@@ -3,14 +3,14 @@ import gzip
 
 import numpy
 import theano
-from conv import get_best_interval, create_default_network, get_model_parameters_path, get_model_name, \
-    get_dataset_types_mm9
+from tss.conv import get_model_parameters_path, get_model_name, \
+    get_dataset_types_mm9, get_default_parameters
+from tss.conv_model import TssPredictionNetwork
 
 from util.data import convert_to_number
 
 
-def prepare_genome(interval):
-    left, right = interval
+def prepare_genome(left, right):
 
     with open('data/chr1.fa', 'r') as f:
         genome = "".join(map(lambda t: t[:-1], f.readlines()[1:]))
@@ -23,9 +23,11 @@ def prepare_genome(interval):
 
 
 def predict_tracks_conv():
-    interval = get_best_interval()
     batch_size = 1000
-    network = create_default_network(batch_size)
+
+    parameters = get_default_parameters()
+
+    network = TssPredictionNetwork(batch_size, parameters)
     for data_name in get_dataset_types_mm9():
         for i in range(3):
             model_name = get_model_name(data_name, i)
@@ -38,7 +40,7 @@ def predict_tracks_conv():
             parts = []
             offsets = []
 
-            for (part, offset) in prepare_genome(interval):
+            for (part, offset) in prepare_genome(parameters["left"], parameters["right"]):
                 binary = convert_to_number(part)
                 parts.append(binary)
                 offsets.append(offset)

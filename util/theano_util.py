@@ -43,8 +43,10 @@ def add_dropout(output, is_train, p, rng):
     #is_train is a pseudo boolean theano variable for switching between training and prediction
     return T.switch(T.neq(is_train, 0), train_output, output)
 
+
 def relu(x):
     return T.maximum(x, 0.001 * x)
+
 
 class HiddenLayer(object):
     def __init__(self, rng, input, n_in, n_out, W=None, b=None,

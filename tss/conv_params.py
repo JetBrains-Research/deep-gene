@@ -2,7 +2,7 @@ from time import gmtime, strftime
 
 import numpy
 import theano
-from conv_model import Network
+from conv_model import TssPredictionNetwork
 from conv import prepare_data, Fitter, get_default_parameters
 
 from util.data import divide_data
@@ -11,8 +11,8 @@ from util.data import divide_data
 def test_model(data, model_params):
     training, validation, test = data
     batch_size = 1000
-    rng = numpy.random.RandomState(23455)
-    model = Network(rng, batch_size, model_params)
+
+    model = TssPredictionNetwork(batch_size, model_params)
 
     fitter = Fitter(
         model,
@@ -28,7 +28,7 @@ def test_model(data, model_params):
     return fitter.do_fit(log_path)
 
 
-def compare_different_models():
+def compare_models_parameters():
     theano.config.openmp = True
     f = open('result.txt', 'a')
 
@@ -39,8 +39,6 @@ def compare_different_models():
         parameters["n_kernels1"] = k1
 
         print(parameters)
-        left = parameters["left"]
-        right = parameters["right"]
 
         result = 0
 
@@ -48,7 +46,7 @@ def compare_different_models():
         f.write(str(parameters) + "\n")
 
         for data in data_set:
-            prepared_data = prepare_data(data, left, right)
+            prepared_data = prepare_data(data, parameters)
 
             r = test_model(prepared_data, parameters)
             result += r / 3
@@ -63,4 +61,4 @@ def compare_different_models():
 
 
 if __name__ == '__main__':
-    compare_different_models()
+    compare_models_parameters()

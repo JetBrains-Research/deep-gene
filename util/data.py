@@ -6,21 +6,6 @@ import gzip
 import cPickle
 
 
-def convert_to_binary_layered(s):
-    letters = {
-        'a': [1, 0, 0, 0],
-        't': [0, 1, 0, 0],
-        'g': [0, 0, 1, 0],
-        'c': [0, 0, 0, 1]}
-
-    l = numpy.zeros(shape=(4, len(s), 1), dtype=numpy.float32)
-
-    for i, letter in enumerate(s):
-        l[:, i, 0] = letters[letter]
-
-    return l
-
-
 def convert_to_number(s):
     letters = {
         'a': 0,
@@ -32,21 +17,6 @@ def convert_to_number(s):
 
     for i, letter in enumerate(s):
         l[i] = letters[letter]
-
-    return l
-
-
-def convert_to_binary_flat(s):
-    letters = {
-        'a': [1, 0, 0, 0],
-        't': [0, 1, 0, 0],
-        'g': [0, 0, 1, 0],
-        'c': [0, 0, 0, 1]}
-
-    l = []
-
-    for letter in s:
-        l.append(letters[letter])
 
     return l
 

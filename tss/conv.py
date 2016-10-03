@@ -9,11 +9,14 @@ import theano.tensor as T
 import time
 
 from util.adam import adam
-from conv_model import Network
+from conv_model import TssPredictionNetwork
 from util.data import shared_dataset, unzip, human_time, convert_to_number
 
 
-def prepare_data(data, left, right):
+def prepare_data(data, parameters):
+    left = parameters["left"]
+    right = parameters["right"]
+
     train, valid, test = data
 
     def prepossess(d):
@@ -174,22 +177,13 @@ class Fitter():
         return test_error
 
 
-def create_default_network(batch_size=1000, parameters=None):
-    rng = numpy.random.RandomState(23455)
-    if not parameters:
-        parameters = get_default_parameters()
-    model = Network(rng, batch_size, parameters)
-    return model
-
-
 def get_model_name(data_name, index):
     return "best_conv_model_{}_{}".format(data_name, index)
 
 
 def get_model_parameters_path(dataset_name, index):
     model_name = get_model_name(dataset_name, index)
-    model_path = 'models/{}.pkl.gz'.format(model_name)
-    return model_path
+    return 'models/{}.pkl.gz'.format(model_name)
 
 
 def get_best_interval():

@@ -142,10 +142,12 @@ class MultiRegressionLayer_old(object):
         self.b.set_value(state["b"])
 
 
-class Network(object):
-    def __init__(self, rng,
+class TssPredictionNetwork(object):
+    def __init__(self,
                  batch_size,
                  parameters):
+
+        rng = numpy.random.RandomState(23455)
 
         sequence_size = parameters["right"] - parameters["left"]
         n_kernels3 = parameters["n_kernels3"]
