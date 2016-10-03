@@ -2,7 +2,8 @@ from time import gmtime, strftime
 
 import numpy
 import theano
-from conv import Network, prepare_data, Fitter, get_default_parameters
+from conv_model import Network
+from conv import prepare_data, Fitter, get_default_parameters
 
 from util.data import divide_data
 
@@ -20,8 +21,8 @@ def test_model(data, model_params):
         test,
         batch_size=batch_size,
         learning_rate=model_params["learning_rate"],
-        reg_coef1=model_params["reg_coef1"],
-        reg_coef2=model_params["reg_coef2"])
+        L1_reg_coef=model_params["L1_reg_coef"],
+        L2_reg_coef=model_params["L1_reg_coef"])
 
     log_path = "logs/{}.log".format(strftime("%Y-%m-%d-%H:%M:%S", gmtime()))
     return fitter.do_fit(log_path)
@@ -47,7 +48,7 @@ def compare_different_models():
         f.write(str(parameters) + "\n")
 
         for data in data_set:
-            prepared_data = prepare_data(data, interval=(left, right))
+            prepared_data = prepare_data(data, left, right)
 
             r = test_model(prepared_data, parameters)
             result += r / 3

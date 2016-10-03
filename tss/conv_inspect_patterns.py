@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy
 import theano
 import theano.tensor as T
-from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2, \
-    get_dataset_types, create_conv_input
+from conv import get_default_parameters, get_model_parameters_path, get_dataset_types
+from tss.conv_model import create_conv_input, ConvolutionPart3, ConvolutionPart2
 
 from util.data import divide_data, unzip, convert_to_number
 

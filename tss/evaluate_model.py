@@ -44,7 +44,7 @@ def main():
 
             print(model_path)
 
-            training, validation, test = prepare_data(divide_data(data_name, k), interval=(left, right))
+            training, validation, test = prepare_data(divide_data(data_name, k), left, right)
 
             model = create_default_network(batch_size)
 

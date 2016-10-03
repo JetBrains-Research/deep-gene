@@ -4,7 +4,6 @@ import theano.tensor as T
 import numpy
 
 
-
 def adam(cost, params, lr=0.0002, b1=0.1, b2=0.001, e=1e-8):
         updates = []
         grads = T.grad(cost, params)
