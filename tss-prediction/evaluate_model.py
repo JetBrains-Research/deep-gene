@@ -1,13 +1,13 @@
-import os
-import numpy
-import theano
-import gzip
 import cPickle
-
-from conv import get_best_interval, prepare_data, create_default_network, get_model_parameters_path, get_dataset_types
-from data import divide_data
+import gzip
+import os
 
 import matplotlib.pyplot as plt
+import numpy
+import theano
+from conv import get_best_interval, prepare_data, create_default_network, get_model_parameters_path, get_dataset_types
+
+from util.data import divide_data
 
 
 def get_errors(batch_size, model, test_x, test_y):

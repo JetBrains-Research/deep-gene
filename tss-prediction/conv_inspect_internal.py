@@ -1,8 +1,9 @@
-import gzip
 import cPickle
+import gzip
 
 from conv import get_best_interval, create_default_network, prepare_data
-from data import divide_data
+
+from util.data import divide_data
 
 
 def get_all_layers(data_x, model, i=0):

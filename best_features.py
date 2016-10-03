@@ -1,6 +1,6 @@
 import theano
-
 from conv import get_best_interval
+
 from transcription_prediction import prepare_data, divide_data, get_error_from_seq
 
 

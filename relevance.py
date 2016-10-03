@@ -1,12 +1,13 @@
-import gzip
 import cPickle
+import gzip
+
 import dominate
-from dominate.tags import *
 import numpy
 import theano
 import theano.tensor as T
 from conv import get_best_interval, prepare_data, get_model_parameters_path, create_default_network
 from data import divide_data
+from dominate.tags import *
 
 
 class Relevance(object):

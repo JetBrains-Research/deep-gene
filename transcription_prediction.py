@@ -1,16 +1,16 @@
 import random
+import time
+from math import exp, log
 
 import lasagne
-import theano
 import numpy
+import theano
 import theano.tensor as T
-from math import exp, log
-import time
-
 from conv import get_best_interval
-from util.multi_regression_layer import MultiRegressionLayer
+
 from util.data import convert_to_number
 from util.data import human_time
+from util.multi_regression_layer import MultiRegressionLayer
 
 
 def shared_dataset(data_xsy):

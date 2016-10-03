@@ -1,17 +1,17 @@
-import gzip
 import cPickle
+import gzip
 import itertools
 import os
 import subprocess
+
+import matplotlib.pyplot as plt
+import numpy
 import theano
 import theano.tensor as T
-
-import numpy
 from conv import get_default_parameters, get_model_parameters_path, ConvolutionPart3, ConvolutionPart2, \
     get_dataset_types, create_conv_input
-import matplotlib.pyplot as plt
 
-from data import divide_data, unzip, convert_to_number
+from util.data import divide_data, unzip, convert_to_number
 
 
 def cut_to_nmers(seqs, k):

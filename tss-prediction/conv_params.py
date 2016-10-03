@@ -1,9 +1,10 @@
-
-import theano
-import numpy
 from time import gmtime, strftime
+
+import numpy
+import theano
 from conv import Network, prepare_data, Fitter, get_default_parameters
-from data import divide_data
+
+from util.data import divide_data
 
 
 def test_model(data, model_params):

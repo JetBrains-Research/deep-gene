@@ -1,12 +1,12 @@
-import gzip
 import cPickle
+import gzip
 
 import numpy
 import theano
 from conv import get_best_interval, create_default_network, get_model_parameters_path, get_model_name, \
     get_dataset_types_mm9
 
-from data import convert_to_number
+from util.data import convert_to_number
 
 
 def prepare_genome(interval):
