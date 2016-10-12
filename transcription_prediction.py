@@ -6,9 +6,8 @@ import lasagne
 import numpy
 import theano
 import theano.tensor as T
-from conv import get_best_interval
 
-from util.data import convert_to_number
+from util.data import convert_to_number, get_log_file_path
 from util.data import human_time
 from util.multi_regression_layer import MultiRegressionLayer
 
@@ -22,10 +21,7 @@ def shared_dataset(data_xsy):
     return shared_x, shared_s, shared_y
 
 
-def divide_data(interval,
-                mask=None):
-    left, right = interval
-
+def divide_data(left, right, mask=None):
     with open("data/transcription/tss.fast") as f:
         sequences = [line[left:right] for line in f.readlines()]
 
@@ -281,18 +277,25 @@ def main():
     theano.config.openmp = True
     # theano.config.optimizer = "None"
 
-    epoch_start = time.time()
-    results = {}
+    log_file = open(get_log_file_path("transcription_prediction"), "w")
+
+    def log(str):
+        print(str)
+        log_file.write(str + "\n")
+        log_file.flush()
 
     for network_type in ["chip-seq", "sequence", "combined"]:
-        data = prepare_data(divide_data(get_best_interval(), mask=None))
-        results[network_type] = [get_error_from_seq(network_type, data) for i in range(5)]
+        epoch_start = time.time()
+        log("start {}".format(network_type))
+        data = prepare_data(divide_data(1000, 2500, mask=None))
+        for i in range(5):
+            error = get_error_from_seq(network_type, data)
+            log("error: {}".format(error))
 
-    epoch_end = time.time()
+        epoch_end = time.time()
+        log("time:{}".format(human_time(epoch_end - epoch_start)))
 
-    print "time:{}".format(human_time(epoch_end - epoch_start))
-
-    print results
+    log_file.close()
 
 
 if __name__ == '__main__':

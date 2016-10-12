@@ -5,6 +5,8 @@ import os
 import gzip
 import cPickle
 
+import time
+
 
 def convert_to_number(s):
     letters = {
@@ -118,6 +120,10 @@ def human_time(t):
         result += "{:2.2f}s".format(seconds + milliseconds)
     return result
 
+
+def get_log_file_path(suffix):
+    log_file_path = os.path.join("logs", "{}_{}.log".format(time.strftime("%Y-%m-%d-%H:%M:%S"), suffix))
+    return log_file_path
 
 def shared_dataset(data_xy, borrow=True):
     """ Function that loads the dataset into shared variables
