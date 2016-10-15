@@ -164,11 +164,16 @@ class Fitter(object):
             seq_network = SequenceNetwork(x, s, batch_size, 1500)
             output = lasagne.layers.ElemwiseSumLayer([chip_network.output, seq_network.output])
             vars_set = {x, s, y}
+        else:
+            print("Unexpected network type:{}".format(network_type))
+            raise
 
         network_output = lasagne.layers.NonlinearityLayer(output,
                                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
-        layer2 = lasagne.layers.DenseLayer(network_output, 100, nonlinearity=lasagne.nonlinearities.leaky_rectify)
+        layer2 = lasagne.layers.DenseLayer(network_output,
+                                           100,
+                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
         layer2_drop = lasagne.layers.DropoutLayer(layer2, p=0.5)
 
@@ -256,7 +261,11 @@ def get_error_from_seq(network_type, data):
 
         valid_err = get_validation_error(network)
 
-        print("{:3} total error: {} patience: {}".format(epoch, err / train_batches_number, patience))
+        print("{:3} total error: {:.3f} valid error {:.3f} patience: {}".format(
+            epoch,
+            err / train_batches_number,
+            valid_err,
+            patience))
 
         if valid_err < best_error:
             best_error = valid_err
