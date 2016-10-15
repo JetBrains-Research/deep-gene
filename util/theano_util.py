@@ -5,6 +5,7 @@ import theano.tensor as T
 from theano.tensor.signal.pool import pool_2d
 from theano.tensor.nnet import conv
 
+
 def drop_cpu(input, p, rng):
     """
     :type input: numpy.array
@@ -17,6 +18,7 @@ def drop_cpu(input, p, rng):
     srng = T.shared_randomstreams.RandomStreams(rng.randint(999999))
     mask = srng.binomial(n=1, p=p, size=input.shape, dtype=theano.config.floatX)
     return input * mask
+
 
 def drop_cuda(input, p, rng):
     """
@@ -37,10 +39,11 @@ if theano.config.device == "cpu":
 else:
     drop = drop_cuda
 
-def add_dropout(output, is_train, p, rng):
-    train_output = drop(numpy.cast[theano.config.floatX](1./p) * output, p, rng)
 
-    #is_train is a pseudo boolean theano variable for switching between training and prediction
+def add_dropout(output, is_train, p, rng):
+    train_output = drop(numpy.cast[theano.config.floatX](1. / p) * output, p, rng)
+
+    # is_train is a pseudo boolean theano variable for switching between training and prediction
     return T.switch(T.neq(is_train, 0), train_output, output)
 
 

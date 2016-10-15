@@ -4,11 +4,13 @@ from math import exp, log
 
 import lasagne
 import numpy
+import os
 import theano
 import theano.tensor as T
 
-from util.data import convert_to_number, get_log_file_path
-from util.data import human_time
+from util.data import convert_to_number
+from util.logs import get_result_directory_path, SimpleLogger
+from util.logs import human_time
 from util.multi_regression_layer import MultiRegressionLayer
 
 
@@ -244,7 +246,7 @@ def get_test_error(network):
     return test_err
 
 
-def get_error_from_seq(network_type, data):
+def get_error_from_seq(network_type, data, logger):
     train, validation, test = data
     train_x, train_s, train_y = train
     batch_size = 1000
@@ -261,7 +263,7 @@ def get_error_from_seq(network_type, data):
 
         valid_err = get_validation_error(network)
 
-        print("{:3} total error: {:.3f} valid error {:.3f} patience: {}".format(
+        logger.log("{:3} total error: {:.3f} valid error {:.3f} patience: {}".format(
             epoch,
             err / train_batches_number,
             valid_err,
@@ -271,14 +273,14 @@ def get_error_from_seq(network_type, data):
             best_error = valid_err
             test_err = get_test_error(network)
             result_error = test_err
-            print("      valid_err: {}".format(valid_err))
-            print("       test_err: {}".format(test_err))
+            logger.log("      valid_err: {}".format(valid_err))
+            logger.log("       test_err: {}".format(test_err))
             patience = 100
         else:
             patience -= 1
             if patience == 0: break
 
-    print result_error
+    logger.log(result_error)
     return result_error
 
 
@@ -286,25 +288,24 @@ def main():
     theano.config.openmp = True
     # theano.config.optimizer = "None"
 
-    log_file = open(get_log_file_path("transcription_prediction"), "w")
+    result_directory = get_result_directory_path("transcription_prediction")
 
-    def log(str):
-        print(str)
-        log_file.write(str + "\n")
-        log_file.flush()
+    logger = SimpleLogger(result_directory, "results.log")
 
     for network_type in ["chip-seq", "sequence", "combined"]:
         epoch_start = time.time()
-        log("start {}".format(network_type))
+        logger.log("start {}".format(network_type))
         data = prepare_data(divide_data(1000, 2500, mask=None))
         for i in range(5):
-            error = get_error_from_seq(network_type, data)
-            log("error: {}".format(error))
+            fitter_logger = SimpleLogger(result_directory, "{}_{}.log".format(network_type, i))
+            error = get_error_from_seq(network_type, data, fitter_logger)
+            fitter_logger.close()
+            logger.log("error: {}".format(error))
 
         epoch_end = time.time()
-        log("time:{}".format(human_time(epoch_end - epoch_start)))
+        logger.log("time:{}".format(human_time(epoch_end - epoch_start)))
 
-    log_file.close()
+    logger.close()
 
 
 if __name__ == '__main__':

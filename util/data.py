@@ -5,8 +5,6 @@ import os
 import gzip
 import cPickle
 
-import time
-
 
 def convert_to_number(s):
     letters = {
@@ -98,32 +96,6 @@ def divide_data(name, index):
 
 def unzip(l):
         return [a for a, b in l], [b for a, b in l]
-
-
-def human_time(t):
-    seconds = int(t)
-    milliseconds = t - int(t)
-
-    hours = seconds // (60 * 60)
-    minutes = (seconds // 60) % 60
-    seconds %= 60
-
-    result = ""
-    if hours > 0:
-        result += str(hours) + "h"
-    if minutes > 0:
-        result += str(minutes) + "m"
-
-    if minutes >= 10 or hours > 0:
-        result += str(seconds) + "s"
-    else:
-        result += "{:2.2f}s".format(seconds + milliseconds)
-    return result
-
-
-def get_log_file_path(suffix):
-    log_file_path = os.path.join("logs", "{}_{}.log".format(time.strftime("%Y-%m-%d-%H:%M:%S"), suffix))
-    return log_file_path
 
 def shared_dataset(data_xy, borrow=True):
     """ Function that loads the dataset into shared variables
