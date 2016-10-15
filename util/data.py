@@ -24,7 +24,7 @@ def convert_to_number(s):
 def divide_data(name, index):
     """ Load sequence data divide it to train and test set.
     """
-    path = "data/divided_{}_{}".format(name, index) + ".pkl.gz"
+    path = "data/divided_{}_{}.pkl.gz".format(name, index)
     if not os.path.exists(path):
         def sum_size(l):
             return sum(map(len, l))

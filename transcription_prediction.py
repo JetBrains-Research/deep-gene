@@ -1,7 +1,9 @@
+import gzip
 import random
 import time
 from math import exp, log
 
+import cPickle
 import lasagne
 import numpy
 import os
@@ -9,7 +11,7 @@ import theano
 import theano.tensor as T
 
 from util.data import convert_to_number
-from util.logs import get_result_directory_path, SimpleLogger
+from util.logs import get_result_directory_path, PrintLogger, FileLogger
 from util.logs import human_time
 from util.multi_regression_layer import MultiRegressionLayer
 
@@ -23,55 +25,72 @@ def shared_dataset(data_xsy):
     return shared_x, shared_s, shared_y
 
 
-def divide_data(left, right, mask=None):
-    with open("data/transcription/tss.fast") as f:
-        sequences = [line[left:right] for line in f.readlines()]
+def divide_data(name, index):
+    divided_path = os.path.join("data", "transcription", name, "divided_{}.pkl.gz".format(index))
+    if not os.path.exists(divided_path):
+        with open(os.path.join("data", "transcription", name, "tss.fast")) as f:
+            sequences = [line[:-1] for line in f.readlines()]
 
-    x = []
-    y = []
+        x = []
+        y = []
 
-    with open("data/transcription/abundances.csv") as f:
-        for line in f.readlines():
-            if (line.startswith("#")):
-                continue
-            split = line.split("\t")
+        with open(os.path.join("data", "transcription", name, "abundances.csv")) as f:
+            for line in f.readlines():
+                if line.startswith("#"):
+                    continue
+                split = line.split("\t")
 
-            if split[2] == "abundance":
-                continue
+                if split[2] == "abundance":
+                    continue
 
-            tpm = float(split[2])
+                tpm = float(split[2])
 
-            y.append(log(tpm + exp(-10)))
+                y.append(log(tpm + exp(-10)))
 
-            x_row = [float(str) for str in split[3:]]
-            if mask is not None:
-                x_row = [a * b for a, b in zip(x_row, mask)]
+                x_row = [float(str) for str in split[3:]]
 
-            x.append(x_row)
+                x.append(x_row)
 
-    print("Size of x:{}".format(len(x[0])))
+        print("Size of x:{}".format(len(x[0])))
 
-    data = zip(x, sequences, y)
+        data = zip(x, sequences, y)
 
-    random.shuffle(data)
+        random.shuffle(data)
 
-    test = data[:5000]
-    valid = data[5000:10000]
-    train = data[10000:]
+        test = data[:5000]
+        valid = data[5000:10000]
+        train = data[10000:]
 
-    return train, valid, test
+        result = (test, valid, train)
+
+        print("Start writing: {}".format(divided_path))
+        with gzip.open(divided_path, 'w') as f:
+            cPickle.dump(result, f)
+        print("Done")
+
+    print("Start reading: {}".format(divided_path))
+    with gzip.open(divided_path, 'r') as f:
+        data = cPickle.load(f)
+        print("Done")
+        return data
 
 
-def prepare_data(data):
+def prepare_data(data, left, right, mask=None):
     train, valid, test = data
 
     def unzip3(l):
         return [[t[i] for t in l] for i in range(3)]
 
+    def apply_mask(x_row):
+        if mask:
+            return [a * b for a, b in zip(x_row, mask)]
+        else:
+            return x_row
+
     def prepossess(d):
         binary_data = []
         for (x, s, y) in d:
-            binary_data.append((x, convert_to_number(s), y))
+            binary_data.append((apply_mask(x), convert_to_number(s[left:right]), y))
         return shared_dataset(unzip3(binary_data))
 
     return prepossess(train), prepossess(valid), prepossess(test)
@@ -290,14 +309,15 @@ def main():
 
     result_directory = get_result_directory_path("transcription_prediction")
 
-    logger = SimpleLogger(result_directory, "results.log")
+    logger = FileLogger(result_directory, "results")
 
     for network_type in ["chip-seq", "sequence", "combined"]:
         epoch_start = time.time()
         logger.log("start {}".format(network_type))
-        data = prepare_data(divide_data(1000, 2500, mask=None))
+
         for i in range(5):
-            fitter_logger = SimpleLogger(result_directory, "{}_{}.log".format(network_type, i))
+            data = prepare_data(divide_data("CD4", i + 1), 1000, 2500)
+            fitter_logger = FileLogger(result_directory, "{}_{}.log".format(network_type, i))
             error = get_error_from_seq(network_type, data, fitter_logger)
             fitter_logger.close()
             logger.log("error: {}".format(error))

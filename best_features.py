@@ -1,10 +1,10 @@
 import theano
-from conv import get_best_interval
 
 from transcription_prediction import prepare_data, divide_data, get_error_from_seq
+from util.logs import PrintLogger, get_result_directory_path, FileLogger
 
 
-def update_mask(base_mask):
+def update_mask(base_mask, logger):
     errors = []
     best_error = float("inf")
     best_mask = None
@@ -21,14 +21,15 @@ def update_mask(base_mask):
 
         for i in range(5):
             print "start: {}".format(i)
-            data = prepare_data(divide_data(get_best_interval(), mask=mask))
-            error += get_error_from_seq("chip-seq", data) / 5
+            data = prepare_data(divide_data("CD4", i + 1), 1000, 2500, mask)
 
-        print "mask"
-        print mask
-        print "error: {}".format(error)
+            error += get_error_from_seq("chip-seq", data, PrintLogger()) / 5
+
+        logger.log("mask")
+        logger.log(mask)
+        logger.log("error: {}".format(error))
         errors.append(error)
-        print "errors: {}".format(errors)
+        logger.log("errors: {}".format(errors))
 
         if error < best_error:
             best_error = error
@@ -36,13 +37,15 @@ def update_mask(base_mask):
     return best_mask, best_error
 
 
-def optimize_mask():
+def optimize_mask(result_directory):
     masks = []
     errors = []
 
+    logger = FileLogger(result_directory, "main")
+
     mask = [0.0] * 176
     for i in range(50):
-        mask, error = update_mask(mask)
+        mask, error = update_mask(mask, logger)
         masks.append(list(mask))
         errors.append(error)
 
@@ -51,11 +54,13 @@ def optimize_mask():
                 f.write(str(m) + "\n")
                 f.write(str(e) + "\n")
 
+    logger.close()
 
 def main():
     theano.config.openmp = True
 
-    optimize_mask()
+    result_directory = get_result_directory_path("transcription_best_features")
+    optimize_mask(result_directory)
 
 
 if __name__ == '__main__':

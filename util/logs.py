@@ -23,9 +23,9 @@ def human_time(t):
     return result
 
 
-class SimpleLogger(object):
+class FileLogger(object):
     def __init__(self, path, name):
-        self.path = os.path.join(path, name)
+        self.path = os.path.join(path, name + ".log")
         self.log_file = open(self.path, "w")
         self.start_time = time.time()
 
@@ -44,6 +44,16 @@ class SimpleLogger(object):
         if self.log_file:
             print("Error: logger {} not closed.".format(self.path))
 
+
+class PrintLogger(object):
+    def __init__(self):
+        pass
+
+    def log(self, data):
+        print(data)
+
+    def close(self):
+        pass
 
 def get_result_directory_path(suffix):
     result_path = os.path.join("results", "{}_{}".format(time.strftime("%Y-%m-%d-%H:%M:%S"), suffix))
