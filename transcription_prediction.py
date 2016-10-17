@@ -62,7 +62,7 @@ def divide_data(name, index):
         valid = data[5000:10000]
         train = data[10000:]
 
-        result = (test, valid, train)
+        result = (train, valid, test)
 
         print("Start writing: {}".format(divided_path))
         with gzip.open(divided_path, 'w') as f:
