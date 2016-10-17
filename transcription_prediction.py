@@ -5,7 +5,8 @@ from math import exp, log
 
 import cPickle
 import lasagne
-import numpy
+import numpy as np
+import pandas as pd
 import os
 import theano
 import theano.tensor as T
@@ -18,9 +19,9 @@ from util.multi_regression_layer import MultiRegressionLayer
 
 def shared_dataset(data_xsy):
     data_x, data_s, data_y = data_xsy
-    shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
-    shared_s = theano.shared(numpy.asarray(data_s, dtype='int8'))
-    shared_y = theano.shared(numpy.asarray(data_y, dtype=theano.config.floatX))
+    shared_x = theano.shared(np.asarray(data_x, dtype=theano.config.floatX))
+    shared_s = theano.shared(np.asarray(data_s, dtype='int8'))
+    shared_y = theano.shared(np.asarray(data_y, dtype=theano.config.floatX))
 
     return shared_x, shared_s, shared_y
 
@@ -97,7 +98,7 @@ def prepare_data(data, left, right, mask=None):
 
 
 class ChipSeqNetwork(object):
-    def __init__(self, x, s):
+    def __init__(self, x):
         input = lasagne.layers.InputLayer(shape=(None, 88), input_var=x)
         input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
         layer1 = lasagne.layers.DenseLayer(input_drop, 100, nonlinearity=T.tanh)
@@ -113,7 +114,7 @@ def create_conv_input(x, batch_size, sequence_size):
 
 
 class SequenceNetwork(object):
-    def __init__(self, x, s, batch_size, sequence_size):
+    def __init__(self, s, batch_size, sequence_size):
         conv_input = create_conv_input(s, batch_size, sequence_size)
 
         input = lasagne.layers.InputLayer(shape=(None, 4, sequence_size), input_var=conv_input)
@@ -173,23 +174,19 @@ class Fitter(object):
         index = T.lscalar()  # index to a [mini]batch
 
         if network_type == "chip-seq":
-            chip_network = ChipSeqNetwork(x, s)
-            vars_set = {x, y}
-            output = chip_network.output
+            output_layer, vars_set = self.create_chip_seq_network(s, x, y)
+
         elif network_type == "sequence":
-            seq_network = SequenceNetwork(x, s, batch_size, 1500)
-            vars_set = {s, y}
-            output = seq_network.output
+            output_layer, vars_set = self.creaty_sequence_network(s, x, y)
+
         elif network_type == "combined":
-            chip_network = ChipSeqNetwork(x, s)
-            seq_network = SequenceNetwork(x, s, batch_size, 1500)
-            output = lasagne.layers.ElemwiseSumLayer([chip_network.output, seq_network.output])
-            vars_set = {x, s, y}
+            output_layer, vars_set = self.create_combined_network(s, x, y)
+
         else:
             print("Unexpected network type:{}".format(network_type))
             raise
 
-        network_output = lasagne.layers.NonlinearityLayer(output,
+        network_output = lasagne.layers.NonlinearityLayer(output_layer,
                                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
 
         layer2 = lasagne.layers.DenseLayer(network_output,
@@ -201,6 +198,42 @@ class Fitter(object):
         regression = lasagne.layers.DenseLayer(layer2_drop, 1, nonlinearity=None)
 
         output = lasagne.layers.get_output(regression).flatten()
+
+        if network_type == "chip-seq":
+            get_output_internal = theano.function(
+                inputs=[x],
+                outputs=output
+            )
+
+            def get_output(x_v, s_v):
+                return get_output_internal(x_v)
+
+            self.get_output = get_output
+        elif network_type == "sequence":
+            get_output_internal = theano.function(
+                inputs=[s],
+                outputs=output,
+            )
+
+            def get_output(x_v, s_v):
+                return get_output_internal(s_v)
+
+            self.get_output = get_output
+
+        elif network_type == "combined":
+            get_output_internal = theano.function(
+                inputs=[x, s],
+                outputs=output,
+            )
+
+            def get_output(x_v, s_v):
+                return get_output_internal(x_v, s_v)
+
+            self.get_output = get_output
+
+        else:
+            print("Unexpected network type:{}".format(network_type))
+            raise
 
         err = T.mean(lasagne.objectives.squared_error(output, y))
 
@@ -236,6 +269,25 @@ class Fitter(object):
             givens=self.prepare_given(index, vars_set, test_set_x, test_set_s, test_set_y)
         )
 
+    def create_chip_seq_network(self, s, x, y):
+        chip_network = ChipSeqNetwork(x)
+        vars_set = {x, y}
+        output = chip_network.output
+        return output, vars_set
+
+    def creaty_sequence_network(self, s, x, y):
+        seq_network = SequenceNetwork(s, self.batch_size, 1500)
+        vars_set = {s, y}
+        output = seq_network.output
+        return output, vars_set
+
+    def create_combined_network(self, s, x, y):
+        chip_network = ChipSeqNetwork(x)
+        seq_network = SequenceNetwork(s, self.batch_size, 1500)
+        output = lasagne.layers.ElemwiseSumLayer([chip_network.output, seq_network.output])
+        vars_set = {x, s, y}
+        return output, vars_set
+
     def prepare_given(self, index, vars_set, set_x, set_s, set_y):
         result = {}
 
@@ -265,22 +317,45 @@ def get_test_error(network):
     return test_err
 
 
-def get_error_from_seq(network_type, data, logger):
+def write_prediction(fitter, train_x, train_s, train_y, path):
+    batch_size = fitter.batch_size
+    train_x_value = train_x.get_value()
+    train_s_value = train_s.get_value()
+    train_y_value = train_y.get_value()
+    train_batches_number = train_x_value.shape[0] // batch_size
+
+    tpm = np.zeros((train_batches_number * batch_size))
+    pred_tpm = np.zeros((train_batches_number * batch_size))
+
+    for i in range(train_batches_number):
+        offset = i * batch_size
+        tpm[offset:offset + batch_size] = train_y_value[offset:offset + batch_size]
+        pred_tpm[offset:offset + batch_size] = fitter.get_output(
+            train_x_value[offset:offset + batch_size],
+            train_s_value[offset:offset + batch_size])
+
+    df = pd.DataFrame({'tpm': tpm,
+                       'pred_tpm': pred_tpm})
+
+    df.to_csv(path)
+
+
+def get_error_from_seq(network_type, data, logger, result_path=None):
     train, validation, test = data
     train_x, train_s, train_y = train
     batch_size = 1000
     train_batches_number = train_x.get_value().shape[0] // batch_size
 
-    network = Fitter(train, validation, test, batch_size, network_type)
+    fitter = Fitter(train, validation, test, batch_size, network_type)
     best_error = 1000
     patience = 100
     result_error = 0
     for epoch in range(1000):
         err = 0.0
         for i in range(train_batches_number):
-            err += network.train_model(i)
+            err += fitter.train_model(i)
 
-        valid_err = get_validation_error(network)
+        valid_err = get_validation_error(fitter)
 
         logger.log("{:3} total error: {:.3f} valid error {:.3f} patience: {}".format(
             epoch,
@@ -290,14 +365,19 @@ def get_error_from_seq(network_type, data, logger):
 
         if valid_err < best_error:
             best_error = valid_err
-            test_err = get_test_error(network)
+            test_err = get_test_error(fitter)
             result_error = test_err
             logger.log("      valid_err: {}".format(valid_err))
             logger.log("       test_err: {}".format(test_err))
+            if result_path:
+                write_prediction(fitter, train_x, train_s, train_y, result_path)
             patience = 100
+
         else:
             patience -= 1
             if patience == 0: break
+
+
 
     logger.log(result_error)
     return result_error
@@ -317,8 +397,9 @@ def main():
 
         for i in range(5):
             data = prepare_data(divide_data("CD4", i + 1), 1000, 2500)
-            fitter_logger = FileLogger(result_directory, "{}_{}.log".format(network_type, i))
-            error = get_error_from_seq(network_type, data, fitter_logger)
+            tpm_path = os.path.join(result_directory, "tpm_pred_{}_{}.csv".format(network_type, i))
+            fitter_logger = FileLogger(result_directory, "{}_{}".format(network_type, i))
+            error = get_error_from_seq(network_type, data, fitter_logger, tpm_path)
             fitter_logger.close()
             logger.log("error: {}".format(error))
 
