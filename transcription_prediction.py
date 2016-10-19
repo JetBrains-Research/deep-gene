@@ -25,6 +25,7 @@ def shared_dataset(data_xsy):
 
     return shared_x, shared_s, shared_y
 
+input_size = 89
 
 def divide_data(name, index):
     divided_path = os.path.join("data", "transcription", name, "divided_{}.pkl.gz".format(index))
@@ -98,8 +99,8 @@ def prepare_data(data, left, right, mask=None):
 
 
 class ChipSeqNetwork(object):
-    def __init__(self, x):
-        input = lasagne.layers.InputLayer(shape=(None, 88), input_var=x)
+    def __init__(self, x, input_size):
+        input = lasagne.layers.InputLayer(shape=(None, input_size), input_var=x)
         input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
         layer1 = lasagne.layers.DenseLayer(input_drop, 100, nonlinearity=T.tanh)
         self.output = layer1
@@ -270,7 +271,7 @@ class Fitter(object):
         )
 
     def create_chip_seq_network(self, s, x, y):
-        chip_network = ChipSeqNetwork(x)
+        chip_network = ChipSeqNetwork(x, input_size)
         vars_set = {x, y}
         output = chip_network.output
         return output, vars_set
@@ -282,7 +283,7 @@ class Fitter(object):
         return output, vars_set
 
     def create_combined_network(self, s, x, y):
-        chip_network = ChipSeqNetwork(x)
+        chip_network = ChipSeqNetwork(x, input_size)
         seq_network = SequenceNetwork(s, self.batch_size, 1500)
         output = lasagne.layers.ElemwiseSumLayer([chip_network.output, seq_network.output])
         vars_set = {x, s, y}
@@ -376,8 +377,6 @@ def get_error_from_seq(network_type, data, logger, result_path=None):
         else:
             patience -= 1
             if patience == 0: break
-
-
 
     logger.log(result_error)
     return result_error
