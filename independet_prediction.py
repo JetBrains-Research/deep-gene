@@ -8,20 +8,25 @@ from util.logs import get_result_directory_path, FileLogger
 
 
 class InputTransformationLayer(lasagne.layers.Layer):
-    def __init__(self, incoming, num_units, name=None):
+    def __init__(self, incoming, num_units, name=None, add_nonlinearity=True):
         super(InputTransformationLayer, self).__init__(incoming, name)
 
         num_inputs = self.input_shape[1]
-
+        self.add_nonlinearity = add_nonlinearity
         self.b = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="b")
-        self.logW = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="W")
-        self.logC = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="C")
+        self.logW = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="logW")
+        self.logC = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="logC")
+        if not add_nonlinearity:
+            self.b0 = self.add_param(lasagne.init.Normal(), num_inputs, name="b0")
 
     def get_output_for(self, input, **kwargs):
         input_dimshuffle = input.dimshuffle([0, 1, 'x'])
 
         t = T.exp(self.logC) * T.nnet.sigmoid(T.exp(self.logW) * input_dimshuffle + self.b)
-        return T.sum(t, axis=2)
+        if self.add_nonlinearity:
+            return T.tanh(T.sum(t, axis=2))
+        else:
+            return T.sum(t, axis=2) + self.b0
 
     def get_output_shape_for(self, input_shape):
         return input_shape

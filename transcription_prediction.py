@@ -54,6 +54,7 @@ def divide_data(name, index):
                 x.append(x_row)
 
         print("Size of x:{}".format(len(x[0])))
+        print("y interval {} {}".format(min(y), max(y)))
 
         data = zip(x, sequences, y)
 
@@ -123,28 +124,28 @@ class SequenceNetwork(object):
         input_drop = lasagne.layers.DropoutLayer(input, p=0.2)
 
         conv1 = lasagne.layers.Conv1DLayer(input_drop, num_filters=20, filter_size=4,
-                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                           nonlinearity=lasagne.nonlinearities.tanh)
 
         conv1_pool = lasagne.layers.MaxPool1DLayer(conv1, 2)
 
         conv1_drop = lasagne.layers.DropoutLayer(conv1_pool, p=0.2)
 
         conv2 = lasagne.layers.Conv1DLayer(conv1_drop, num_filters=40, filter_size=6,
-                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                           nonlinearity=lasagne.nonlinearities.tanh)
 
         conv2_pool = lasagne.layers.MaxPool1DLayer(conv2, 2)
 
         conv2_drop = lasagne.layers.DropoutLayer(conv2_pool, p=0.2)
 
         conv3 = lasagne.layers.Conv1DLayer(conv2_drop, num_filters=60, filter_size=6,
-                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                           nonlinearity=lasagne.nonlinearities.tanh)
 
         conv3_pool = lasagne.layers.MaxPool1DLayer(conv3, 2)
 
         conv3_drop = lasagne.layers.DropoutLayer(conv3_pool, p=0.2)
 
         multi_regression_layer = MultiRegressionLayer(conv3_drop,
-                                                      nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                                      nonlinearity=lasagne.nonlinearities.tanh)
 
         dence_layer = lasagne.layers.DenseLayer(multi_regression_layer, 100, nonlinearity=None)
 
@@ -188,11 +189,11 @@ class Fitter(object):
             raise
 
         network_output = lasagne.layers.NonlinearityLayer(output_layer,
-                                                          nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                                          nonlinearity=lasagne.nonlinearities.tanh)
 
         layer2 = lasagne.layers.DenseLayer(network_output,
                                            100,
-                                           nonlinearity=lasagne.nonlinearities.leaky_rectify)
+                                           nonlinearity=lasagne.nonlinearities.tanh)
 
         layer2_drop = lasagne.layers.DropoutLayer(layer2, p=0.5)
 
