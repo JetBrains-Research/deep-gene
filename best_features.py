@@ -4,7 +4,7 @@ from transcription_prediction import prepare_data, divide_data, get_error_from_s
 from util.logs import PrintLogger, get_result_directory_path, FileLogger
 
 
-def update_mask(base_mask, logger):
+def update_mask(base_mask, data_list, logger):
     errors = []
     best_error = float("inf")
     best_mask = None
@@ -21,7 +21,7 @@ def update_mask(base_mask, logger):
 
         for i in range(5):
             print "start: {}".format(i)
-            data = prepare_data(divide_data("CD4", i + 1), 1000, 2500, mask)
+            data = prepare_data(data_list[i], 1000, 2500, mask)
 
             error += get_error_from_seq("chip-seq", data, PrintLogger()) / 5
 
@@ -37,7 +37,7 @@ def update_mask(base_mask, logger):
     return best_mask, best_error
 
 
-def optimize_mask(result_directory):
+def optimize_mask(result_directory, data_list):
     masks = []
     errors = []
 
@@ -45,7 +45,7 @@ def optimize_mask(result_directory):
 
     mask = [0.0] * 176
     for i in range(50):
-        mask, error = update_mask(mask, logger)
+        mask, error = update_mask(mask, data_list, logger)
         masks.append(list(mask))
         errors.append(error)
 
@@ -56,11 +56,14 @@ def optimize_mask(result_directory):
 
     logger.close()
 
+
 def main():
     theano.config.openmp = True
 
+    data_list = [divide_data("CD4", i + 1) for i in range(5)]
+
     result_directory = get_result_directory_path("transcription_best_features")
-    optimize_mask(result_directory)
+    optimize_mask(result_directory, data_list)
 
 
 if __name__ == '__main__':
