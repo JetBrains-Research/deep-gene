@@ -14,19 +14,17 @@ class InputTransformationLayer(lasagne.layers.Layer):
         num_inputs = self.input_shape[1]
         self.add_nonlinearity = add_nonlinearity
         self.b = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="b")
-        self.logW = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="logW")
-        self.logC = self.add_param(lasagne.init.Normal(), (num_inputs, num_units), name="logC")
-        if not add_nonlinearity:
-            self.b0 = self.add_param(lasagne.init.Normal(), num_inputs, name="b0")
+        self.logW = self.add_param(lasagne.init.Normal(mean=-1), (num_inputs, num_units), name="logW")
+        self.logC = self.add_param(lasagne.init.Normal(mean=1), (num_inputs, num_units), name="logC")
 
     def get_output_for(self, input, **kwargs):
         input_dimshuffle = input.dimshuffle([0, 1, 'x'])
 
-        t = T.exp(self.logC) * T.nnet.sigmoid(T.exp(self.logW) * input_dimshuffle + self.b)
+        t = T.exp(self.logC) * T.tanh(T.exp(self.logW) * input_dimshuffle + self.b)
         if self.add_nonlinearity:
             return T.tanh(T.sum(t, axis=2))
         else:
-            return T.sum(t, axis=2) + self.b0
+            return T.sum(t, axis=2)
 
     def get_output_shape_for(self, input_shape):
         return input_shape

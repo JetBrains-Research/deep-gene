@@ -169,7 +169,7 @@ class Fitter(object):
 
         l_reshape = lasagne.layers.ReshapeLayer(l_in, (batch_size, data_set_size * input_size))
 
-        l_t = InputTransformationLayer(l_reshape, 5)
+        l_t = InputTransformationLayer(l_reshape, 4)
 
         l_reshape2 = lasagne.layers.ReshapeLayer(l_t, (batch_size * data_set_size, input_size))
 
@@ -179,11 +179,9 @@ class Fitter(object):
 
         l_reshape3 = lasagne.layers.ReshapeLayer(regression, (batch_size, data_set_size))
 
-        return l_reshape3
+        l_t_out = InputTransformationLayer(l_reshape3, 4, add_nonlinearity=False)
 
-        #l_t_out = InputTransformationLayer(l_reshape3, 4, add_nonlinearity=False)
-
-        #return l_t_out
+        return l_t_out
 
 
 def get_validation_error(network):
