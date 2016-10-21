@@ -50,7 +50,7 @@ class Fitter(object):
         index = T.lscalar()  # index to a [mini]batch
 
         if is_double:
-            output_layer, l_is_coding = self.create_double_chip_seq_regression(x)
+            output_layer, l_is_coding = self.create_double_chip_seq_regression(x, batch_size)
             regression = lasagne.layers.get_output(output_layer)
             is_coding = lasagne.layers.get_output(l_is_coding)
             output = (regression[:, 0] * (1 - is_coding) + regression[:, 1] * is_coding)
@@ -79,7 +79,11 @@ class Fitter(object):
             }
         )
 
-        output_deterministic = lasagne.layers.get_output(output_layer, deterministic=True).flatten()
+        if is_double:
+            regression = lasagne.layers.get_output(output_layer, deterministic=True)
+            output_deterministic = (regression[:, 0] * (1 - is_coding) + regression[:, 1] * is_coding)
+        else:
+            output_deterministic = lasagne.layers.get_output(output_layer, deterministic=True).flatten()
 
         err = T.mean(lasagne.objectives.squared_error(output_deterministic, y))
 
@@ -103,18 +107,16 @@ class Fitter(object):
 
     def create_chip_seq_regression(self, x):
         input = lasagne.layers.InputLayer(shape=(None, 89), input_var=x)
-        transformed = InputTransformationLayer(input, 5)
+        transformed = InputTransformationLayer(input, 4)
         regression = lasagne.layers.DenseLayer(transformed, 1, nonlinearity=None)
-
         return regression
 
-    def create_double_chip_seq_regression(self, x):
-        l_input = lasagne.layers.InputLayer(shape=(None, 89), input_var=x)
+    def create_double_chip_seq_regression(self, x, batch_size):
+        l_input = lasagne.layers.InputLayer(shape=(batch_size, 89), input_var=x)
 
         l_is_coding = lasagne.layers.SliceLayer(l_input, indices=0, axis=1)
-        l_chip = lasagne.layers.SliceLayer(l_input, indices=slice(1, 89), axis=1)
 
-        transformed = InputTransformationLayer(l_chip, 4)
+        transformed = InputTransformationLayer(l_input, 4)
         l_regression = lasagne.layers.DenseLayer(transformed, 2, nonlinearity=None)
 
         return l_regression, l_is_coding
@@ -187,7 +189,7 @@ def main():
     for i in range(5):
         data = prepare_data(divide_data("CD4", i + 1), 1000, 2500)
 
-        fitter_logger = FileLogger(result_directory, "log_{}".format(i))
+        fitter_logger = FileLogger(result_directory, "log_dep_{}".format(i))
         error = get_error_from_seq(data, fitter_logger, True)
         fitter_logger.close()
         logger.log("error: {}".format(error))
@@ -197,7 +199,7 @@ def main():
     for i in range(5):
         data = prepare_data(divide_data("CD4", i + 1), 1000, 2500)
 
-        fitter_logger = FileLogger(result_directory, "log_{}".format(i))
+        fitter_logger = FileLogger(result_directory, "log_ind_{}".format(i))
         error = get_error_from_seq(data, fitter_logger, False)
         fitter_logger.close()
         logger.log("error: {}".format(error))
