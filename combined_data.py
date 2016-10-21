@@ -87,7 +87,7 @@ def prepare_xy(name):
 
             tpm = float(split[1])
 
-            y.append(log(tpm + exp(-10)))
+            y.append(log(tpm + exp(-8)))
             x_row = [float(s) for s in split[2:]]
             x.append(x_row)
     return x, y

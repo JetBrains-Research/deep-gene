@@ -47,7 +47,7 @@ def divide_data(name, index):
 
                 tpm = float(split[2])
 
-                y.append(log(tpm + exp(-10)))
+                y.append(log(tpm + exp(-8)))
 
                 x_row = [float(str) for str in split[3:]]
 
