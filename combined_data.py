@@ -128,7 +128,7 @@ class Fitter(object):
 
         index = T.lscalar()  # index to a [mini]batch
 
-        input_size = 14
+        input_size = 15
 
         output_layer = self.create_chip_seq_network(batch_size, x, data_set_size, input_size)
 
@@ -271,8 +271,8 @@ def main():
             errors[s, i] = error
 
     for s in range(data_set_num):
-        print dataset_names[s]
-        print errors[s]
+        logger.log(dataset_names[s])
+        logger.log(errors[s])
 
     errors = np.zeros((data_set_num, 5))
 
@@ -287,8 +287,8 @@ def main():
         logger.log("mean: {}".format(error.mean()))
 
     for s in range(data_set_num):
-        print dataset_names[s]
-        print errors[s]
+        logger.log(dataset_names[s])
+        logger.log(errors[s])
 
     epoch_end = time.time()
     logger.log("time:{}".format(human_time(epoch_end - epoch_start)))
